@@ -1,0 +1,36 @@
+header {
+    padding: 20px;
+    display: flex;
+    font-size: 20px;
+    background-color: darksalmon;
+}
+.header>div{
+    display: flex;
+}
+.people {
+    display: grid;
+    grid-template-columns: 50% 50%;
+    
+}
+img{
+    height: 460px;
+    width: 90%;
+    
+}
+.people >div {
+    background-color: burlywood;
+    
+    text-align: center;
+    font-size: 14px;
+}
+h4 {
+    font-family: sans-serif;
+    font-size: 25px;
+    color: green;
+}
+h4:hover{
+    height: 10px;
+    width: 10px;
+    color: red;
+    
+}

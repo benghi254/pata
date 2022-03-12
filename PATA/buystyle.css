@@ -1,0 +1,48 @@
+.container {
+    background: darkgray;
+    color: black;
+    font-size: 18px;
+}
+header {
+    padding: 20px;
+    
+    font-size: 20px;
+    background-color: darksalmon;
+    display: flex;
+    
+}
+.buy {
+    padding: 40px;
+    background-color: mediumblue;
+}
+  
+.header>div{
+    display: flex;
+}
+.prd {
+    padding: 20px;
+    color: darkolivegreen;
+    background: burlywood;
+    
+}
+p {
+    display: flex;
+    direction: inherit;
+    color: darkblue;
+}
+img{
+    height: 400px;
+    width: 390px;
+    
+}
+.Items{
+    display: grid;
+    grid-template-columns: 50% 50%;
+}
+.form {
+    text-align: center;
+    padding: 50px;
+    margin-top: 0px;
+    background-color: darkcyan;
+    color: darkblue;
+}
