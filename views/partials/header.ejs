@@ -52,6 +52,7 @@
                 <a href="/">Browse</a>
                 <a href="/sell">Sell</a>
                 <% if (user) { %>
+                    <a href="/my/listings">My shops</a>
                     <span class="hello">Hi, <strong><%= user.firstName %></strong></span>
                     <form action="/logout" method="post" class="inline"><button type="submit" class="linklike">Log out</button></form>
                 <% } else { %>

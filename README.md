@@ -26,6 +26,8 @@ The database is created automatically at `data/pata.db`. Delete that file to sta
 - **Sell**: logged-in users list a product (`/sell/goods`) or a service (`/sell/services`). Sellers give
   their street, building or landmark, drop a pin on a map (or use their phone's location), and set
   opening and closing times for each day of the week.
+- **My shops** (`/my/listings`): sellers see all their listings and can edit any of them (details,
+  location pin, opening hours) or delete them. Only the owner can edit or delete a listing.
 - **Shop pages**: every listing gets its own page (`/listing/<id>/<name>-<area>`) with a map, a
   "Get directions" link, the weekly hours and a live "Open now" / "Closed" badge in East Africa Time.
   Hours that run past midnight (e.g. 6 PM to 2 AM) are supported.

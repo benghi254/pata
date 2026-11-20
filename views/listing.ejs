@@ -14,6 +14,9 @@
             <h1><%= listing.shop_name %></h1>
             <p class="what"><%= listing.title %></p>
         </div>
+        <% if (isOwner) { %>
+            <a href="/listing/<%= listing.id %>/edit" class="btn btn-sm">Edit listing</a>
+        <% } %>
         <% if (status) { %>
             <span class="status <%= status.isOpen ? 'open' : 'closed' %>"><%= status.label %></span>
         <% } %>

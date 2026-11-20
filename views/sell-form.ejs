@@ -1,11 +1,17 @@
 <%- include('partials/header') %>
 <div class="wrap panel-page">
     <div class="panel wide">
-        <span class="eyebrow"><%= kind === 'goods' ? 'New product' : 'New service' %></span>
-        <h1><%= kind === 'goods' ? 'List a product' : 'List a service' %></h1>
+        <% if (editing) { %>
+            <a href="/my/listings" class="back">← My shops</a>
+            <span class="eyebrow">Editing</span>
+            <h1><%= editing.shop_name %></h1>
+        <% } else { %>
+            <span class="eyebrow"><%= kind === 'goods' ? 'New product' : 'New service' %></span>
+            <h1><%= kind === 'goods' ? 'List a product' : 'List a service' %></h1>
+        <% } %>
         <p class="sub"><%= heading %>.</p>
         <%- include('partials/errors', { errors: errors }) %>
-        <form action="/sell/<%= kind %>" method="post">
+        <form action="<%= action %>" method="post">
             <fieldset>
                 <legend><%= kind === 'goods' ? 'Product details' : 'Service details' %></legend>
                 <div class="cols">
@@ -91,9 +97,21 @@
                 </div>
                 <button type="button" class="btn btn-sm" id="copy-monday">Copy Monday's hours to all open days</button>
             </fieldset>
-            <button type="submit" class="btn btn-primary btn-block"><%= kind === 'goods' ? 'Publish product' : 'Publish service' %></button>
+            <button type="submit" class="btn btn-primary btn-block"><%= editing ? 'Save changes' : (kind === 'goods' ? 'Publish product' : 'Publish service') %></button>
         </form>
+        <% if (editing) { %>
+            <div class="danger-zone">
+                <div>
+                    <strong>Delete this listing</strong>
+                    <p class="hint">It will disappear from PATA and search results. This can't be undone.</p>
+                </div>
+                <form action="/listing/<%= editing.id %>/delete" method="post" class="confirm-delete" data-name="<%= editing.shop_name %>">
+                    <button type="submit" class="btn btn-sm btn-danger">Delete listing</button>
+                </form>
+            </div>
+        <% } %>
     </div>
 </div>
 <script src="/js/sell-form.js" defer></script>
+<% if (editing) { %><script src="/js/confirm-delete.js" defer></script><% } %>
 <%- include('partials/footer') %>

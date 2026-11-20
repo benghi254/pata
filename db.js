@@ -22,7 +22,7 @@ db.exec(`
   );
 
   CREATE TABLE IF NOT EXISTS listings (
-    id           INTEGER PRIMARY KEY,
+    id           INTEGER PRIMARY KEY AUTOINCREMENT, -- never reuse ids, so old shop links stay dead
     user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     kind         TEXT NOT NULL CHECK (kind IN ('goods', 'services')),
     category     TEXT NOT NULL,
@@ -37,6 +37,7 @@ db.exec(`
     latitude     REAL,
     longitude    REAL,
     hours        TEXT,
+    updated_at   TEXT,
     created_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -50,6 +51,7 @@ for (const [name, type] of [
   ['latitude', 'REAL'],
   ['longitude', 'REAL'],
   ['hours', 'TEXT'],
+  ['updated_at', 'TEXT'],
 ]) {
   if (!existing.includes(name)) db.exec(`ALTER TABLE listings ADD COLUMN ${name} ${type}`);
 }
