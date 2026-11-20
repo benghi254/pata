@@ -1,30 +1,60 @@
 <%- include('partials/header') %>
-        <div class="sell">
-            <p><%= heading %></p>
-            <%- include('partials/errors', { errors: errors }) %>
-            <form action="/sell/<%= kind %>" method="post" class="form">
-                <fieldset>
-                    <legend><%= kind === 'goods' ? 'Product details' : 'Service details' %></legend>
-                    <label><%= kind === 'goods' ? 'Product name' : 'Service you offer' %>: <input type="text" name="title" value="<%= values.title || '' %>" required></label><br>
-                    <label>Shop / business name: <input type="text" name="shopName" value="<%= values.shopName || '' %>" required></label><br>
-                    <label>Description: <textarea name="description" rows="3"><%= values.description || '' %></textarea></label><br>
-                    <label>Category:
-                        <select name="category" required>
-                            <option value="">-- choose --</option>
+<div class="wrap panel-page">
+    <div class="panel wide">
+        <span class="eyebrow"><%= kind === 'goods' ? 'New product' : 'New service' %></span>
+        <h1><%= kind === 'goods' ? 'List a product' : 'List a service' %></h1>
+        <p class="sub"><%= heading %>.</p>
+        <%- include('partials/errors', { errors: errors }) %>
+        <form action="/sell/<%= kind %>" method="post">
+            <fieldset>
+                <legend><%= kind === 'goods' ? 'Product details' : 'Service details' %></legend>
+                <div class="cols">
+                    <div class="field">
+                        <label for="title"><%= kind === 'goods' ? 'Product name' : 'Service you offer' %></label>
+                        <input id="title" type="text" name="title" value="<%= values.title || '' %>" placeholder="<%= kind === 'goods' ? 'e.g. Sukuma wiki' : 'e.g. Fades and line-ups' %>" required>
+                    </div>
+                    <div class="field">
+                        <label for="shopName">Shop / business name</label>
+                        <input id="shopName" type="text" name="shopName" value="<%= values.shopName || '' %>" required>
+                    </div>
+                    <div class="field span">
+                        <label for="category">Category</label>
+                        <select id="category" name="category" required>
+                            <option value="">Choose a category</option>
                             <% options.forEach(function (c) { %>
                                 <option value="<%= c.slug %>" <%= values.category === c.slug ? 'selected' : '' %>><%= c.name %></option>
                             <% }) %>
                         </select>
-                    </label>
-                </fieldset>
-                <fieldset>
-                    <legend>Contacts</legend>
-                    <label>Phone: <input type="tel" name="phone" value="<%= values.phone || '' %>" required></label><br>
-                    <label>County: <input type="text" name="county" value="<%= values.county || '' %>" required></label><br>
-                    <label>Constituency: <input type="text" name="constituency" value="<%= values.constituency || '' %>"></label><br>
-                    <label>Ward: <input type="text" name="ward" value="<%= values.ward || '' %>"></label>
-                </fieldset>
-                <input type="submit" value="<%= kind === 'goods' ? 'Sell' : 'List my service' %>">
-            </form>
-        </div>
+                    </div>
+                    <div class="field span">
+                        <label for="description">Description <span class="opt">(optional)</span></label>
+                        <textarea id="description" name="description" rows="3" placeholder="What makes you stand out?"><%= values.description || '' %></textarea>
+                    </div>
+                </div>
+            </fieldset>
+            <fieldset>
+                <legend>Contact &amp; location</legend>
+                <div class="cols">
+                    <div class="field">
+                        <label for="phone">Phone</label>
+                        <input id="phone" type="tel" name="phone" value="<%= values.phone || '' %>" placeholder="0712 345678" autocomplete="tel" required>
+                    </div>
+                    <div class="field">
+                        <label for="county">County</label>
+                        <input id="county" type="text" name="county" value="<%= values.county || '' %>" placeholder="e.g. Nairobi" required>
+                    </div>
+                    <div class="field">
+                        <label for="constituency">Constituency <span class="opt">(optional)</span></label>
+                        <input id="constituency" type="text" name="constituency" value="<%= values.constituency || '' %>">
+                    </div>
+                    <div class="field">
+                        <label for="ward">Ward <span class="opt">(optional)</span></label>
+                        <input id="ward" type="text" name="ward" value="<%= values.ward || '' %>">
+                    </div>
+                </div>
+            </fieldset>
+            <button type="submit" class="btn btn-primary btn-block"><%= kind === 'goods' ? 'Publish product' : 'Publish service' %></button>
+        </form>
+    </div>
+</div>
 <%- include('partials/footer') %>

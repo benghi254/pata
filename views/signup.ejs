@@ -1,20 +1,32 @@
 <%- include('partials/header') %>
-        <div class="main">
-            <div class="wlcom">
-                <h4>WELCOME TO PATA</h4>
-                <p>The online marketplace where you can buy and sell goods and services without any third parties.</p>
+<div class="wrap panel-page">
+    <div class="panel">
+        <span class="eyebrow">Join PATA</span>
+        <h1>Create your account</h1>
+        <p class="sub">Buy and sell goods and services with no third parties.</p>
+        <%- include('partials/errors', { errors: errors }) %>
+        <form action="/signup" method="post">
+            <div class="field">
+                <label for="email">Email</label>
+                <input id="email" type="email" name="email" value="<%= values.email || '' %>" placeholder="you@example.com" autocomplete="email" required>
             </div>
-            <div class="form">
-                <h3>Sign Up</h3>
-                <%- include('partials/errors', { errors: errors }) %>
-                <form action="/signup" method="post">
-                    <label>Email:<br><input type="email" name="email" value="<%= values.email || '' %>" required></label><br>
-                    <label>First Name:<br><input type="text" name="firstName" value="<%= values.firstName || '' %>" required></label><br>
-                    <label>Other Name:<br><input type="text" name="otherName" value="<%= values.otherName || '' %>"></label><br>
-                    <label>Password (at least 8 characters):<br><input type="password" name="password" minlength="8" required></label><br>
-                    <input type="submit" value="Sign up">
-                </form>
-                <p>Already have an account? <a href="/login">Log in</a></p>
+            <div class="cols">
+                <div class="field">
+                    <label for="firstName">First name</label>
+                    <input id="firstName" type="text" name="firstName" value="<%= values.firstName || '' %>" autocomplete="given-name" required>
+                </div>
+                <div class="field">
+                    <label for="otherName">Other name <span class="opt">(optional)</span></label>
+                    <input id="otherName" type="text" name="otherName" value="<%= values.otherName || '' %>" autocomplete="family-name">
+                </div>
             </div>
-        </div>
+            <div class="field">
+                <label for="password">Password</label>
+                <input id="password" type="password" name="password" minlength="8" placeholder="At least 8 characters" autocomplete="new-password" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Create account</button>
+        </form>
+        <p class="alt">Already have an account? <a href="/login">Log in</a></p>
+    </div>
+</div>
 <%- include('partials/footer') %>

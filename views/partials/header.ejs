@@ -3,28 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="/css/<%= typeof css !== 'undefined' ? css : 'buystyle.css' %>">
+    <meta name="theme-color" content="#05060f">
     <title><%= title %> · PATA</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <div class="header">
-                <div>
-                    <div>
-                        <% if (user) { %>
-                            <span class="hello">Hi, <%= user.firstName %></span>
-                            <form action="/logout" method="post" class="inline"><button type="submit">LOG OUT</button></form>
-                        <% } else { %>
-                            <a href="/signup">SIGN UP</a>
-                            <a href="/login">LOG IN</a>
-                        <% } %>
-                        <a href="/">HOME</a>
-                    </div>
-                    <div><h1>PATA</h1></div>
-                    <div>
-                        <a href="/sell">SELL</a>
-                    </div>
-                </div>
-            </div>
-        </header>
+    <header class="site-header">
+        <div class="wrap">
+            <a href="/" class="logo grad-text">PATA</a>
+            <nav class="nav">
+                <a href="/">Browse</a>
+                <a href="/sell">Sell</a>
+                <% if (user) { %>
+                    <span class="hello">Hi, <strong><%= user.firstName %></strong></span>
+                    <form action="/logout" method="post" class="inline"><button type="submit" class="linklike">Log out</button></form>
+                <% } else { %>
+                    <a href="/login">Log in</a>
+                    <a href="/signup" class="btn btn-primary btn-sm">Sign up</a>
+                <% } %>
+            </nav>
+        </div>
+    </header>
+    <main>

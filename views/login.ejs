@@ -1,15 +1,23 @@
 <%- include('partials/header') %>
-        <div class="main">
-            <div class="form">
-                <h3>Log In</h3>
-                <%- include('partials/errors', { errors: error ? [error] : [] }) %>
-                <form action="/login" method="post">
-                    <input type="hidden" name="next" value="<%= next %>">
-                    <label>Email:<br><input type="email" name="email" value="<%= email %>" required></label><br>
-                    <label>Password:<br><input type="password" name="password" required></label><br>
-                    <input type="submit" value="Log in">
-                </form>
-                <p>New here? <a href="/signup">Sign up</a></p>
+<div class="wrap panel-page">
+    <div class="panel">
+        <span class="eyebrow">Welcome back</span>
+        <h1>Log in</h1>
+        <p class="sub">Pick up where you left off.</p>
+        <%- include('partials/errors', { errors: error ? [error] : [] }) %>
+        <form action="/login" method="post">
+            <input type="hidden" name="next" value="<%= next %>">
+            <div class="field">
+                <label for="email">Email</label>
+                <input id="email" type="email" name="email" value="<%= email %>" placeholder="you@example.com" autocomplete="email" required>
             </div>
-        </div>
+            <div class="field">
+                <label for="password">Password</label>
+                <input id="password" type="password" name="password" autocomplete="current-password" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Log in</button>
+        </form>
+        <p class="alt">New here? <a href="/signup">Create an account</a></p>
+    </div>
+</div>
 <%- include('partials/footer') %>
