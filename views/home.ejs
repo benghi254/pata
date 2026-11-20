@@ -1,0 +1,48 @@
+<%- include('partials/header') %>
+<% const total = Object.values(counts).reduce(function (a, b) { return a + b; }, 0); %>
+<div class="wrap">
+    <section class="hero">
+        <span class="eyebrow">Your local marketplace</span>
+        <h1>Find it. Sell it. <span class="grad-text">Right next door.</span></h1>
+        <p class="lead">PATA connects you with vendors, makers and fundis in your area. No middlemen, no shipping from abroad, just the people around you. <strong>No account needed to buy</strong>: just browse and call.</p>
+        <div class="actions">
+            <a href="#goods" class="btn btn-primary">Start browsing →</a>
+            <a href="/sell" class="btn">Sell on PATA</a>
+        </div>
+        <div class="stats">
+            <div class="stat"><b class="grad-text"><%= total %></b><span>Listings</span></div>
+            <div class="stat"><b class="grad-text"><%= goods.length + services.length %></b><span>Categories</span></div>
+            <div class="stat"><b class="grad-text">0</b><span>Middlemen</span></div>
+        </div>
+    </section>
+
+    <% [['goods', 'Goods', 'Products from producers and vendors in your area.', goods],
+        ['services', 'Services', 'Experts near you, ready to take on that heavy task at home.', services]].forEach(function (s) { %>
+        <section class="section" id="<%= s[0] %>">
+            <div class="section-head">
+                <div>
+                    <span class="eyebrow"><%= s[0] === 'goods' ? 'Shop' : 'Hire' %></span>
+                    <h2><%= s[1] %></h2>
+                    <p><%= s[2] %></p>
+                </div>
+                <a href="/sell/<%= s[0] %>" class="btn btn-sm"><%= s[0] === 'goods' ? 'Sell a product' : 'Offer a service' %></a>
+            </div>
+            <div class="grid">
+                <% s[3].forEach(function (c) { const n = counts[c.slug] || 0; %>
+                    <a class="card cat-card" href="/category/<%= c.slug %>">
+                        <div class="media"><img src="/img/<%= c.image %>" alt="" loading="lazy"></div>
+                        <div class="body">
+                            <h3><%= c.name %></h3>
+                            <p><%= c.blurb %></p>
+                            <div class="foot">
+                                <span class="chip <%= n ? 'live' : '' %>"><%= n %> listed</span>
+                                <span class="go">Explore →</span>
+                            </div>
+                        </div>
+                    </a>
+                <% }) %>
+            </div>
+        </section>
+    <% }) %>
+</div>
+<%- include('partials/footer') %>

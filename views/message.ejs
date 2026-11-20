@@ -1,0 +1,10 @@
+<%- include('partials/header') %>
+<div class="wrap panel-page">
+    <div class="panel message">
+        <div class="code grad-text"><%= title === 'Not found' ? '404' : '!' %></div>
+        <h1><%= title %></h1>
+        <p class="sub"><%= message %></p>
+        <a href="/" class="btn btn-primary">Back to home</a>
+    </div>
+</div>
+<%- include('partials/footer') %>

@@ -1,0 +1,24 @@
+<%- include('partials/header') %>
+<div class="wrap panel-page">
+    <div class="panel">
+        <span class="eyebrow">For sellers</span>
+        <h1>Seller login</h1>
+        <p class="sub">Manage your shops, location and opening hours.</p>
+        <p class="buyer-note">Buyers don't need to log in. <a href="/">Browse shops →</a></p>
+        <%- include('partials/errors', { errors: error ? [error] : [] }) %>
+        <form action="/login" method="post">
+            <input type="hidden" name="next" value="<%= next %>">
+            <div class="field">
+                <label for="email">Email</label>
+                <input id="email" type="email" name="email" value="<%= email %>" placeholder="you@example.com" autocomplete="email" required>
+            </div>
+            <div class="field">
+                <label for="password">Password</label>
+                <input id="password" type="password" name="password" autocomplete="current-password" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Log in</button>
+        </form>
+        <p class="alt">Want to sell on PATA? <a href="/signup<%= next !== '/my/listings' ? '?next=' + encodeURIComponent(next) : '' %>">Create a seller account</a></p>
+    </div>
+</div>
+<%- include('partials/footer') %>

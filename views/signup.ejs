@@ -1,0 +1,34 @@
+<%- include('partials/header') %>
+<div class="wrap panel-page">
+    <div class="panel">
+        <span class="eyebrow">For sellers</span>
+        <h1>Create your seller account</h1>
+        <p class="sub">List your shop or service for free and let buyers near you find you.</p>
+        <p class="buyer-note">Just looking to buy? You don't need an account. <a href="/">Browse shops →</a></p>
+        <%- include('partials/errors', { errors: errors }) %>
+        <form action="/signup" method="post">
+            <input type="hidden" name="next" value="<%= next %>">
+            <div class="field">
+                <label for="email">Email</label>
+                <input id="email" type="email" name="email" value="<%= values.email || '' %>" placeholder="you@example.com" autocomplete="email" required>
+            </div>
+            <div class="cols">
+                <div class="field">
+                    <label for="firstName">First name</label>
+                    <input id="firstName" type="text" name="firstName" value="<%= values.firstName || '' %>" autocomplete="given-name" required>
+                </div>
+                <div class="field">
+                    <label for="otherName">Other name <span class="opt">(optional)</span></label>
+                    <input id="otherName" type="text" name="otherName" value="<%= values.otherName || '' %>" autocomplete="family-name">
+                </div>
+            </div>
+            <div class="field">
+                <label for="password">Password</label>
+                <input id="password" type="password" name="password" minlength="8" placeholder="At least 8 characters" autocomplete="new-password" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Create seller account</button>
+        </form>
+        <p class="alt">Already selling on PATA? <a href="/login<%= next !== '/sell' ? '?next=' + encodeURIComponent(next) : '' %>">Seller login</a></p>
+    </div>
+</div>
+<%- include('partials/footer') %>
