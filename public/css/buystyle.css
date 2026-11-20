@@ -46,3 +46,9 @@ img{
     background-color: darkcyan;
     color: darkblue;
 }
+/* Added for the Node.js version */
+.inline { display: inline; }
+.inline button { font: inherit; background: none; border: none; color: blue; text-decoration: underline; cursor: pointer; padding: 0; }
+.errors { color: darkred; background: mistyrose; display: inline-block; text-align: left; padding: 10px 30px; }
+.sell { padding: 20px; }
+.sell label { display: inline-block; margin: 4px 0; }

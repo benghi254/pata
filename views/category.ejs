@@ -1,0 +1,24 @@
+<%- include('partials/header', { css: 'pagestyle.css' }) %>
+        <div class="info">
+            <div class="prd">
+                <h2><%= category.name %></h2>
+                <p><%= category.blurb %></p>
+            </div>
+            <% if (!listings.length) { %>
+                <p class="empty">Nobody is listed here yet. <a href="/sell/<%= category.kind %>">Be the first to sell here.</a></p>
+            <% } else { %>
+                <div class="people">
+                    <% listings.forEach(function (l) { %>
+                        <div>
+                            <img src="/img/<%= category.image %>" alt="">
+                            <h4><%= l.shop_name %></h4>
+                            <p><strong><%= l.title %></strong></p>
+                            <% if (l.description) { %><p><%= l.description %></p><% } %>
+                            <p>Location: <%= [l.ward, l.constituency, l.county].filter(Boolean).join(', ') %></p>
+                            <p>Contact: <a href="tel:<%= l.phone.replace(/\s/g, '') %>"><%= l.phone %></a></p>
+                        </div>
+                    <% }) %>
+                </div>
+            <% } %>
+        </div>
+<%- include('partials/footer') %>

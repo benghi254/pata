@@ -1,0 +1,30 @@
+<%- include('partials/header') %>
+        <div class="sell">
+            <p><%= heading %></p>
+            <%- include('partials/errors', { errors: errors }) %>
+            <form action="/sell/<%= kind %>" method="post" class="form">
+                <fieldset>
+                    <legend><%= kind === 'goods' ? 'Product details' : 'Service details' %></legend>
+                    <label><%= kind === 'goods' ? 'Product name' : 'Service you offer' %>: <input type="text" name="title" value="<%= values.title || '' %>" required></label><br>
+                    <label>Shop / business name: <input type="text" name="shopName" value="<%= values.shopName || '' %>" required></label><br>
+                    <label>Description: <textarea name="description" rows="3"><%= values.description || '' %></textarea></label><br>
+                    <label>Category:
+                        <select name="category" required>
+                            <option value="">-- choose --</option>
+                            <% options.forEach(function (c) { %>
+                                <option value="<%= c.slug %>" <%= values.category === c.slug ? 'selected' : '' %>><%= c.name %></option>
+                            <% }) %>
+                        </select>
+                    </label>
+                </fieldset>
+                <fieldset>
+                    <legend>Contacts</legend>
+                    <label>Phone: <input type="tel" name="phone" value="<%= values.phone || '' %>" required></label><br>
+                    <label>County: <input type="text" name="county" value="<%= values.county || '' %>" required></label><br>
+                    <label>Constituency: <input type="text" name="constituency" value="<%= values.constituency || '' %>"></label><br>
+                    <label>Ward: <input type="text" name="ward" value="<%= values.ward || '' %>"></label>
+                </fieldset>
+                <input type="submit" value="<%= kind === 'goods' ? 'Sell' : 'List my service' %>">
+            </form>
+        </div>
+<%- include('partials/footer') %>

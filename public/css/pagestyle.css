@@ -34,3 +34,7 @@ h4:hover{
     color: red;
     
 }
+/* Added for the Node.js version */
+.inline { display: inline; }
+.inline button { font: inherit; background: none; border: none; color: blue; text-decoration: underline; cursor: pointer; padding: 0; }
+.empty { padding: 20px; }

@@ -1,0 +1,25 @@
+<%- include('partials/header') %>
+        <div class="main">
+            <div class="buy">
+                <marquee behavior="scroll" direction="up" scrollamount="1" style="color:aqua;">Welcome to PATA, the online interactive marketplace<br>
+                If you have any good or service <a href="/sell">click here</a> to sell.</marquee>
+            </div>
+            <% [['Goods', 'Find products here from producers in your area.', goods],
+                ['Services', 'Find experts near you to help you complete that heavy task in your home.', services]].forEach(function (section) { %>
+                <div class="prd">
+                    <h2><%= section[0] %></h2>
+                    <p><%= section[1] %></p>
+                </div>
+                <div class="Items">
+                    <% section[2].forEach(function (c) { %>
+                        <div>
+                            <img src="/img/<%= c.image %>" alt="<%= c.name %>">
+                            <h4><%= c.name %></h4>
+                            <p><%= c.blurb %></p>
+                            <a href="/category/<%= c.slug %>">Visit (<%= counts[c.slug] || 0 %> listed)</a>
+                        </div>
+                    <% }) %>
+                </div>
+            <% }) %>
+        </div>
+<%- include('partials/footer') %>
