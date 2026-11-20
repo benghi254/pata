@@ -1,0 +1,6 @@
+<%# A category's photo, or its icon on a coloured tile when it has no photo. %>
+<% if (c.image) { %>
+    <img src="/img/<%= c.image %>" alt="" loading="lazy">
+<% } else { %>
+    <div class="icon-tile" style="--h: <%= c.hue || 260 %>" aria-hidden="true"><span><%= c.icon %></span></div>
+<% } %>

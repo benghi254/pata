@@ -21,7 +21,9 @@ The database is created automatically at `data/pata.db`. Delete that file to sta
 
 ## What it does
 
-- **Browse**: the home page lists every category. Each category page shows the sellers listed in it.
+- **Browse**: the home page lists 52 categories: 6 kinds of goods and 46 services and trades (plumbers,
+  electricians, masons, mjengo labourers, mama fua, mechanics, boda riders, salons, tutors and more) in
+  groups, with a search box that also understands Swahili terms. Each category page shows its sellers.
 - **Accounts are for sellers only.** Buyers browse shops, see maps and hours, and call sellers without
   signing up. Sellers create an account (`/signup`) and log in (`/login`) to list and manage their
   shops; passwords are stored scrypt-hashed.
@@ -56,7 +58,7 @@ db.js          SQLite setup and tables
 auth.js        password hashing and the login guard
 hours.js       opening hours: form parsing, "open now", schema.org output
 seo.js         shop URLs, page descriptions and structured data
-categories.js  the list of categories - add a new one here
+categories.js  the list of categories and their groups - add a new one here
 views/         EJS page templates (partials/ holds the shared header and footer)
 public/        CSS, images and the map scripts (js/)
 ```

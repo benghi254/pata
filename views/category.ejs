@@ -1,10 +1,10 @@
 <%- include('partials/header') %>
 <div class="wrap">
-    <section class="banner">
-        <img src="/img/<%= category.image %>" alt="">
+    <section class="banner <%= category.image ? '' : 'no-photo' %>" style="--h: <%= category.hue || 260 %>">
+        <% if (category.image) { %><img src="/img/<%= category.image %>" alt=""><% } else { %><span class="banner-icon" aria-hidden="true"><%= category.icon %></span><% } %>
         <div class="inner">
             <div>
-                <span class="eyebrow"><%= category.kind === 'goods' ? 'Goods' : 'Services' %></span>
+                <span class="eyebrow"><%= category.group %></span>
                 <h1><%= category.name %></h1>
                 <p><%= category.blurb %></p>
             </div>
@@ -42,6 +42,17 @@
                 </article>
             <% }) %>
         </div>
+    <% } %>
+
+    <% if (related.length) { %>
+        <nav class="related" aria-label="Related categories">
+            <h2 class="h-sm">More in <%= category.group %></h2>
+            <div class="related-list">
+                <% related.forEach(function (c) { %>
+                    <a class="pill lg" href="/category/<%= c.slug %>"><span aria-hidden="true"><%= c.icon %></span> <%= c.name %></a>
+                <% }) %>
+            </div>
+        </nav>
     <% } %>
 </div>
 <%- include('partials/footer') %>
