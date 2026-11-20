@@ -1,13 +1,47 @@
-<!DOCTYPE html>
+<%
+  const pageDescription = typeof description !== 'undefined' ? description
+    : 'PATA is the online marketplace that links buyers with local shops, vendors and service providers near them.';
+  const canonicalUrl = typeof canonical !== 'undefined' ? siteUrl + canonical : null;
+  const imageUrl = siteUrl + (typeof ogImage !== 'undefined' ? ogImage : '/img/veges.jpg');
+  const fullTitle = title + ' · PATA';
+%><!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#05060f">
-    <title><%= title %> · PATA</title>
+    <title><%= fullTitle %></title>
+    <meta name="description" content="<%= pageDescription %>">
+    <% if (typeof noindex !== 'undefined' && noindex) { %>
+    <meta name="robots" content="noindex, follow">
+    <% } %>
+    <% if (canonicalUrl) { %>
+    <link rel="canonical" href="<%= canonicalUrl %>">
+    <% } %>
+
+    <meta property="og:site_name" content="PATA">
+    <meta property="og:type" content="<%= typeof ogType !== 'undefined' ? ogType : 'website' %>">
+    <meta property="og:title" content="<%= fullTitle %>">
+    <meta property="og:description" content="<%= pageDescription %>">
+    <meta property="og:image" content="<%= imageUrl %>">
+    <% if (canonicalUrl) { %><meta property="og:url" content="<%= canonicalUrl %>"><% } %>
+    <meta property="og:locale" content="en_KE">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="<%= fullTitle %>">
+    <meta name="twitter:description" content="<%= pageDescription %>">
+    <meta name="twitter:image" content="<%= imageUrl %>">
+
+    <% if (typeof jsonLd !== 'undefined') { [].concat(jsonLd).forEach(function (d) { %>
+    <script type="application/ld+json"><%- jsonLdScript(d) %></script>
+    <% }) } %>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+    <% if (typeof map !== 'undefined' && map) { %>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="" defer></script>
+    <% } %>
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>

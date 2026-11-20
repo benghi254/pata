@@ -33,10 +33,25 @@ db.exec(`
     county       TEXT NOT NULL,
     constituency TEXT NOT NULL DEFAULT '',
     ward         TEXT NOT NULL DEFAULT '',
+    street       TEXT NOT NULL DEFAULT '',
+    latitude     REAL,
+    longitude    REAL,
+    hours        TEXT,
     created_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
 
   CREATE INDEX IF NOT EXISTS listings_category ON listings(category);
 `);
+
+// Add columns introduced after the first version to databases created before them.
+const existing = db.prepare('PRAGMA table_info(listings)').all().map((c) => c.name);
+for (const [name, type] of [
+  ['street', "TEXT NOT NULL DEFAULT ''"],
+  ['latitude', 'REAL'],
+  ['longitude', 'REAL'],
+  ['hours', 'TEXT'],
+]) {
+  if (!existing.includes(name)) db.exec(`ALTER TABLE listings ADD COLUMN ${name} ${type}`);
+}
 
 module.exports = db;

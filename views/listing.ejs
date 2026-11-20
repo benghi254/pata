@@ -1,0 +1,79 @@
+<%- include('partials/header') %>
+<% const hasPin = listing.latitude != null && listing.longitude != null; %>
+<div class="wrap">
+    <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="/">Home</a> <span>/</span>
+        <a href="/category/<%= category.slug %>"><%= category.name %></a> <span>/</span>
+        <span aria-current="page"><%= listing.shop_name %></span>
+    </nav>
+
+    <section class="shop-head">
+        <div class="avatar lg"><%= listing.shop_name.charAt(0).toUpperCase() %></div>
+        <div class="shop-title">
+            <span class="eyebrow"><%= category.name %></span>
+            <h1><%= listing.shop_name %></h1>
+            <p class="what"><%= listing.title %></p>
+        </div>
+        <% if (status) { %>
+            <span class="status <%= status.isOpen ? 'open' : 'closed' %>"><%= status.label %></span>
+        <% } %>
+    </section>
+
+    <div class="shop-grid">
+        <div class="shop-main">
+            <% if (listing.description) { %>
+                <div class="card pad">
+                    <h2 class="h-sm">About</h2>
+                    <p class="desc"><%= listing.description %></p>
+                </div>
+            <% } %>
+
+            <div class="card pad">
+                <h2 class="h-sm">Location</h2>
+                <address class="addr">
+                    <span><%= listing.street %></span>
+                    <span class="muted"><%= place(listing) %></span>
+                </address>
+                <% if (hasPin) { %>
+                    <div id="shop-map" class="map" data-lat="<%= listing.latitude %>" data-lng="<%= listing.longitude %>" data-name="<%= listing.shop_name %>"></div>
+                <% } else { %>
+                    <p class="hint">This seller hasn't pinned their shop on the map yet.</p>
+                <% } %>
+            </div>
+        </div>
+
+        <aside class="shop-side">
+            <div class="card pad">
+                <h2 class="h-sm">Contact</h2>
+                <a class="btn btn-primary btn-block" href="tel:<%= listing.phone.replace(/\s/g, '') %>">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>
+                    Call <%= listing.phone %>
+                </a>
+                <a class="btn btn-block" target="_blank" rel="noopener"
+                   href="https://www.google.com/maps/dir/?api=1&destination=<%= encodeURIComponent(hasPin ? listing.latitude + ',' + listing.longitude : [listing.street, place(listing), 'Kenya'].join(', ')) %>">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m3 11 19-9-9 19-2-8z"/></svg>
+                    Get directions
+                </a>
+            </div>
+
+            <div class="card pad">
+                <h2 class="h-sm">Opening hours</h2>
+                <% if (week) { %>
+                    <table class="week">
+                        <% week.forEach(function (d) { %>
+                            <tr class="<%= d.isToday ? 'today' : '' %>">
+                                <th scope="row"><%= d.name %></th>
+                                <td class="<%= d.text === 'Closed' ? 'muted' : '' %>"><%= d.text %></td>
+                            </tr>
+                        <% }) %>
+                    </table>
+                    <p class="hint">Times are East Africa Time.</p>
+                <% } else { %>
+                    <p class="hint">No opening hours given. Call to check.</p>
+                <% } %>
+            </div>
+        </aside>
+    </div>
+</div>
+<% if (hasPin) { %><script src="/js/listing-map.js" defer></script><% } %>
+<%- include('partials/footer') %>

@@ -51,10 +51,49 @@
                         <label for="ward">Ward <span class="opt">(optional)</span></label>
                         <input id="ward" type="text" name="ward" value="<%= values.ward || '' %>">
                     </div>
+                    <div class="field span">
+                        <label for="street">Street, building or landmark</label>
+                        <input id="street" type="text" name="street" value="<%= values.street || '' %>" placeholder="e.g. Shop 4, Kangemi Market, opposite Total petrol station" required>
+                    </div>
                 </div>
+            </fieldset>
+            <fieldset>
+                <legend>Exact location on the map <span class="opt">(recommended)</span></legend>
+                <p class="hint">Tap the map where your shop is, or use your phone's location while you're at the shop. You can drag the pin to adjust it.</p>
+                <div class="map-tools">
+                    <button type="button" class="btn btn-sm" id="locate">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8"/></svg>
+                        Use my current location
+                    </button>
+                    <button type="button" class="btn btn-sm" id="clear-pin" hidden>Remove pin</button>
+                    <span class="coords" id="coords" aria-live="polite"></span>
+                </div>
+                <div id="picker" class="map" data-lat="<%= values.latitude || '' %>" data-lng="<%= values.longitude || '' %>"></div>
+                <input type="hidden" name="latitude" id="latitude" value="<%= values.latitude || '' %>">
+                <input type="hidden" name="longitude" id="longitude" value="<%= values.longitude || '' %>">
+            </fieldset>
+            <fieldset>
+                <legend>Opening hours</legend>
+                <p class="hint">Untick the days you're closed. If you close after midnight, set the closing time earlier than the opening time (e.g. 6:00 PM to 2:00 AM).</p>
+                <div class="hours">
+                    <% days.forEach(function (d) { const h = values.hours && values.hours[d[0]]; %>
+                        <div class="hours-row" data-day="<%= d[0] %>">
+                            <label class="day">
+                                <input type="checkbox" name="<%= d[0] %>_isOpen" <%= h ? 'checked' : '' %>>
+                                <span><%= d[1] %></span>
+                            </label>
+                            <input type="time" name="<%= d[0] %>_open" value="<%= h ? h.open : '08:00' %>" aria-label="<%= d[1] %> opening time" <%= h ? '' : 'disabled' %>>
+                            <span class="to">to</span>
+                            <input type="time" name="<%= d[0] %>_close" value="<%= h ? h.close : '18:00' %>" aria-label="<%= d[1] %> closing time" <%= h ? '' : 'disabled' %>>
+                            <span class="closed-tag">Closed</span>
+                        </div>
+                    <% }) %>
+                </div>
+                <button type="button" class="btn btn-sm" id="copy-monday">Copy Monday's hours to all open days</button>
             </fieldset>
             <button type="submit" class="btn btn-primary btn-block"><%= kind === 'goods' ? 'Publish product' : 'Publish service' %></button>
         </form>
     </div>
 </div>
+<script src="/js/sell-form.js" defer></script>
 <%- include('partials/footer') %>
