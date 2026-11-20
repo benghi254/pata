@@ -1,48 +1,90 @@
 <%- include('partials/header') %>
-<% const total = Object.values(counts).reduce(function (a, b) { return a + b; }, 0); %>
+<% const total = Object.values(counts).reduce(function (a, b) { return a + b; }, 0);
+   const searchText = function (c) { return [c.name, c.blurb, c.keywords, c.group].join(' ').toLowerCase(); }; %>
 <div class="wrap">
     <section class="hero">
         <span class="eyebrow">Your local marketplace</span>
         <h1>Find it. Sell it. <span class="grad-text">Right next door.</span></h1>
         <p class="lead">PATA connects you with vendors, makers and fundis in your area. No middlemen, no shipping from abroad, just the people around you. <strong>No account needed to buy</strong>: just browse and call.</p>
-        <div class="actions">
-            <a href="#goods" class="btn btn-primary">Start browsing →</a>
-            <a href="/sell" class="btn">Sell on PATA</a>
-        </div>
+
+        <form class="finder" role="search" onsubmit="return false">
+            <label for="find" class="visually-hidden">Search categories</label>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input id="find" type="search" placeholder="What do you need? Try plumber, mama fua, boda…" autocomplete="off">
+        </form>
+        <p class="finder-hint" id="find-status" aria-live="polite">
+            <%= goods.length %> kinds of goods and <%= serviceCount %> services and trades.
+            Popular:
+            <% ['plumber', 'electrician', 'mechanic', 'mama fua', 'mjengo', 'boda'].forEach(function (q, i) { %><button type="button" class="pill" data-q="<%= q %>"><%= q %></button><% }) %>
+        </p>
+
         <div class="stats">
             <div class="stat"><b class="grad-text"><%= total %></b><span>Listings</span></div>
-            <div class="stat"><b class="grad-text"><%= goods.length + services.length %></b><span>Categories</span></div>
+            <div class="stat"><b class="grad-text"><%= goods.length + serviceCount %></b><span>Categories</span></div>
             <div class="stat"><b class="grad-text">0</b><span>Middlemen</span></div>
         </div>
     </section>
 
-    <% [['goods', 'Goods', 'Products from producers and vendors in your area.', goods],
-        ['services', 'Services', 'Experts near you, ready to take on that heavy task at home.', services]].forEach(function (s) { %>
-        <section class="section" id="<%= s[0] %>">
-            <div class="section-head">
-                <div>
-                    <span class="eyebrow"><%= s[0] === 'goods' ? 'Shop' : 'Hire' %></span>
-                    <h2><%= s[1] %></h2>
-                    <p><%= s[2] %></p>
-                </div>
-                <a href="/sell/<%= s[0] %>" class="btn btn-sm"><%= s[0] === 'goods' ? 'Sell a product' : 'Offer a service' %></a>
+    <section class="section findable-section" id="goods">
+        <div class="section-head">
+            <div>
+                <span class="eyebrow">Shop</span>
+                <h2>Goods</h2>
+                <p>Products from producers and vendors in your area.</p>
             </div>
-            <div class="grid">
-                <% s[3].forEach(function (c) { const n = counts[c.slug] || 0; %>
-                    <a class="card cat-card" href="/category/<%= c.slug %>">
-                        <div class="media"><img src="/img/<%= c.image %>" alt="" loading="lazy"></div>
-                        <div class="body">
-                            <h3><%= c.name %></h3>
-                            <p><%= c.blurb %></p>
-                            <div class="foot">
-                                <span class="chip <%= n ? 'live' : '' %>"><%= n %> listed</span>
-                                <span class="go">Explore →</span>
-                            </div>
+            <a href="/sell/goods" class="btn btn-sm">Sell a product</a>
+        </div>
+        <div class="grid">
+            <% goods.forEach(function (c) { const n = counts[c.slug] || 0; %>
+                <a class="card cat-card findable" href="/category/<%= c.slug %>" data-search="<%= searchText(c) %>">
+                    <div class="media"><%- include('partials/cat-media', { c: c }) %></div>
+                    <div class="body">
+                        <h3><%= c.name %></h3>
+                        <p><%= c.blurb %></p>
+                        <div class="foot">
+                            <span class="chip <%= n ? 'live' : '' %>"><%= n %> listed</span>
+                            <span class="go">Explore →</span>
                         </div>
-                    </a>
-                <% }) %>
+                    </div>
+                </a>
+            <% }) %>
+        </div>
+    </section>
+
+    <section class="section" id="services">
+        <div class="section-head">
+            <div>
+                <span class="eyebrow">Hire</span>
+                <h2>Services &amp; trades</h2>
+                <p>Fundis, labourers and experts near you, ready to take on the job.</p>
             </div>
-        </section>
-    <% }) %>
+            <a href="/sell/services" class="btn btn-sm">Offer a service</a>
+        </div>
+
+        <% serviceGroups.forEach(function (g) { %>
+            <div class="svc-group findable-section">
+                <h3 class="group-title"><%= g.name %></h3>
+                <div class="svc-grid">
+                    <% g.items.forEach(function (c) { const n = counts[c.slug] || 0; %>
+                        <a class="card svc-tile findable" href="/category/<%= c.slug %>" data-search="<%= searchText(c) %>">
+                            <div class="thumb"><%- include('partials/cat-media', { c: c }) %></div>
+                            <div class="txt">
+                                <h4><%= c.name %></h4>
+                                <p><%= c.blurb %></p>
+                            </div>
+                            <span class="chip <%= n ? 'live' : '' %>"><%= n %></span>
+                        </a>
+                    <% }) %>
+                </div>
+            </div>
+        <% }) %>
+
+        <div class="empty" id="no-match" hidden>
+            <h2>No category matches that</h2>
+            <p>Try another word, or check the full list above. Offer a service we don't list yet? Pick the closest category when you sell.</p>
+            <button type="button" class="btn" id="clear-find">Show all categories</button>
+        </div>
+    </section>
 </div>
+<script src="/js/find.js" defer></script>
 <%- include('partials/footer') %>

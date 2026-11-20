@@ -581,3 +581,93 @@ legend .opt { text-transform: none; letter-spacing: 0; color: var(--muted); font
 }
 .seller-cta p { margin: 0 0 14px; color: var(--muted); }
 .seller-cta strong { color: var(--text); }
+
+/* ---------- Icon tiles (categories without a photo) ---------- */
+
+.icon-tile {
+  width: 100%; height: 100%;
+  display: grid; place-items: center;
+  background:
+    radial-gradient(circle at 30% 25%, hsl(var(--h) 95% 92%), transparent 60%),
+    linear-gradient(135deg, hsl(var(--h) 90% 88%), hsl(calc(var(--h) + 40) 85% 80%));
+}
+.icon-tile span { font-size: 56px; line-height: 1; filter: drop-shadow(0 6px 10px hsl(var(--h) 60% 40% / 0.3)); }
+.cat-card .media .icon-tile span { font-size: 72px; }
+
+/* ---------- Home: category search ---------- */
+
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.finder {
+  position: relative;
+  max-width: 620px;
+  margin: 0 auto;
+}
+.finder svg { position: absolute; left: 20px; top: 50%; transform: translateY(-50%); color: var(--violet); pointer-events: none; }
+.finder input {
+  padding: 18px 20px 18px 54px;
+  font-size: 17px;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background: linear-gradient(#fff, #fff) padding-box, var(--grad) border-box;
+  box-shadow: var(--shadow);
+}
+.finder input:focus { box-shadow: var(--glow); }
+.finder-hint { color: var(--muted); font-size: 14px; margin: 14px auto 0; max-width: 620px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; align-items: center; }
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px; border-radius: 999px;
+  font: 600 13px/1.2 var(--body);
+  color: var(--accent);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, color 0.2s;
+}
+.pill:hover { color: var(--pink); border-color: var(--border-hi); box-shadow: var(--glow); }
+.pill.lg { padding: 8px 14px; font-size: 14px; color: var(--text); }
+
+/* ---------- Home: grouped services ---------- */
+
+.svc-group { margin-top: 30px; }
+.svc-group:first-of-type { margin-top: 0; }
+.group-title {
+  font-size: 15px; font-weight: 800; letter-spacing: 0.04em;
+  margin: 0 0 12px; display: flex; align-items: center; gap: 10px;
+}
+.group-title::after { content: ''; flex: 1; height: 2px; border-radius: 2px; background: linear-gradient(90deg, var(--border-hi), transparent); }
+.svc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+a.card.svc-tile { display: flex; align-items: center; gap: 14px; padding: 12px 14px 12px 12px; }
+.svc-tile .thumb { flex: none; width: 60px; height: 60px; border-radius: 14px; overflow: hidden; }
+.svc-tile .thumb img { width: 100%; height: 100%; object-fit: cover; }
+.svc-tile .thumb .icon-tile span { font-size: 30px; }
+.svc-tile .txt { flex: 1; min-width: 0; }
+.svc-tile h4 { font-size: 15px; margin: 0 0 2px; }
+.svc-tile p { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.svc-tile .chip { flex: none; min-width: 28px; justify-content: center; }
+#no-match { margin-top: 0; }
+
+/* ---------- Category page: no-photo banner and related links ---------- */
+
+.banner.no-photo {
+  background:
+    radial-gradient(circle at 85% 30%, hsl(var(--h) 95% 75% / 0.9), transparent 55%),
+    linear-gradient(120deg, #0891b2, #7c3aed 55%, #db2777);
+}
+.banner.no-photo::after { background: linear-gradient(to top, rgba(22, 24, 56, 0.35), transparent 70%); }
+.banner-icon {
+  position: absolute; right: 6%; top: 50%; transform: translateY(-50%);
+  font-size: clamp(90px, 16vw, 170px); line-height: 1;
+  filter: drop-shadow(0 16px 30px rgba(22, 24, 56, 0.35));
+  z-index: 1;
+}
+.related { margin-top: 48px; }
+.related-list { display: flex; flex-wrap: wrap; gap: 8px; }
+
+@media (max-width: 720px) {
+  .banner-icon { opacity: 0.35; right: 4%; }
+  .finder input { font-size: 15px; padding: 15px 16px 15px 48px; }
+}
+
+/* Leave room for the sticky header when jumping to a section. */
+section[id] { scroll-margin-top: 90px; }
+@media (max-width: 720px) { section[id] { scroll-margin-top: 150px; } }

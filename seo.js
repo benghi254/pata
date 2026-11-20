@@ -1,5 +1,6 @@
 // Search-engine helpers: listing URLs, page descriptions and schema.org structured data.
 const hours = require('./hours');
+const { photoFor } = require('./categories');
 
 function slugify(text) {
   return String(text)
@@ -35,7 +36,7 @@ function listingJsonLd(l, category, siteUrl) {
     name: l.shop_name,
     description: l.description || `${l.title} in ${place(l)}`,
     url,
-    image: `${siteUrl}/img/${category.image}`,
+    image: siteUrl + photoFor(category),
     telephone: l.phone,
     address: {
       '@type': 'PostalAddress',

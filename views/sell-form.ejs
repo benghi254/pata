@@ -27,8 +27,13 @@
                         <label for="category">Category</label>
                         <select id="category" name="category" required>
                             <option value="">Choose a category</option>
-                            <% options.forEach(function (c) { %>
-                                <option value="<%= c.slug %>" <%= values.category === c.slug ? 'selected' : '' %>><%= c.name %></option>
+                            <% const groupNames = [...new Set(options.map(function (c) { return c.group; }))];
+                               groupNames.forEach(function (gName) { %>
+                                <% if (groupNames.length > 1) { %><optgroup label="<%= gName %>"><% } %>
+                                <% options.filter(function (c) { return c.group === gName; }).forEach(function (c) { %>
+                                    <option value="<%= c.slug %>" <%= values.category === c.slug ? 'selected' : '' %>><%= c.icon %> <%= c.name %></option>
+                                <% }) %>
+                                <% if (groupNames.length > 1) { %></optgroup><% } %>
                             <% }) %>
                         </select>
                     </div>

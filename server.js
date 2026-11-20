@@ -75,7 +75,8 @@ app.get('/', (req, res) => {
       { '@context': 'https://schema.org', '@type': 'Organization', name: 'PATA', url: `${siteUrl}/`, logo: `${siteUrl}/img/veges.jpg` },
     ],
     goods: categories.filter((c) => c.kind === 'goods'),
-    services: categories.filter((c) => c.kind === 'services'),
+    serviceGroups: categories.GROUPS.filter((g) => g.kind === 'services'),
+    serviceCount: categories.filter((c) => c.kind === 'services').length,
     counts,
   });
 });
@@ -91,7 +92,7 @@ app.get('/category/:slug', (req, res, next) => {
     title: `${category.name} near you`,
     description: `${category.blurb} Browse ${listings.length} ${category.name.toLowerCase()} listed on PATA, with locations, opening hours and phone numbers.`,
     canonical: `/category/${category.slug}`,
-    ogImage: `/img/${category.image}`,
+    ogImage: categories.photoFor(category),
     jsonLd: [
       seo.breadcrumbs(siteUrl, [['Home', '/'], [category.name, `/category/${category.slug}`]]),
       {
@@ -105,6 +106,7 @@ app.get('/category/:slug', (req, res, next) => {
     ],
     category,
     listings,
+    related: categories.filter((c) => c.group === category.group && c.slug !== category.slug),
   });
 });
 
@@ -334,7 +336,7 @@ app.get('/listing/:id{/:slug}', (req, res, next) => {
     title: `${listing.shop_name} – ${listing.title} in ${listing.ward || listing.constituency || listing.county}`,
     description: seo.listingDescription(listing, category),
     canonical,
-    ogImage: `/img/${category.image}`,
+    ogImage: categories.photoFor(category),
     ogType: 'business.business',
     map: true,
     jsonLd: [
