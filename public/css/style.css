@@ -566,3 +566,18 @@ legend .opt { text-transform: none; letter-spacing: 0; color: var(--muted); font
   display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
 }
 .danger-zone .hint { margin: 4px 0 0; }
+
+/* ---------- Seller-only accounts ---------- */
+
+.buyer-note {
+  font-size: 14px; padding: 10px 14px; border-radius: 12px; margin: -10px 0 22px;
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--muted);
+}
+.buyer-note a { font-weight: 700; white-space: nowrap; }
+.hero .lead strong { color: var(--text); }
+.seller-cta {
+  margin: 8px auto 0; max-width: 560px; padding: 20px 24px; border-radius: var(--radius);
+  background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow);
+}
+.seller-cta p { margin: 0 0 14px; color: var(--muted); }
+.seller-cta strong { color: var(--text); }

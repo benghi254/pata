@@ -1,11 +1,13 @@
 <%- include('partials/header') %>
 <div class="wrap panel-page">
     <div class="panel">
-        <span class="eyebrow">Join PATA</span>
-        <h1>Create your account</h1>
-        <p class="sub">Buy and sell goods and services with no third parties.</p>
+        <span class="eyebrow">For sellers</span>
+        <h1>Create your seller account</h1>
+        <p class="sub">List your shop or service for free and let buyers near you find you.</p>
+        <p class="buyer-note">Just looking to buy? You don't need an account. <a href="/">Browse shops →</a></p>
         <%- include('partials/errors', { errors: errors }) %>
         <form action="/signup" method="post">
+            <input type="hidden" name="next" value="<%= next %>">
             <div class="field">
                 <label for="email">Email</label>
                 <input id="email" type="email" name="email" value="<%= values.email || '' %>" placeholder="you@example.com" autocomplete="email" required>
@@ -24,9 +26,9 @@
                 <label for="password">Password</label>
                 <input id="password" type="password" name="password" minlength="8" placeholder="At least 8 characters" autocomplete="new-password" required>
             </div>
-            <button type="submit" class="btn btn-primary btn-block">Create account</button>
+            <button type="submit" class="btn btn-primary btn-block">Create seller account</button>
         </form>
-        <p class="alt">Already have an account? <a href="/login">Log in</a></p>
+        <p class="alt">Already selling on PATA? <a href="/login<%= next !== '/sell' ? '?next=' + encodeURIComponent(next) : '' %>">Seller login</a></p>
     </div>
 </div>
 <%- include('partials/footer') %>

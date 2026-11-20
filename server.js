@@ -47,7 +47,7 @@ const KINDS = {
 };
 
 const trim = (v) => (typeof v === 'string' ? v.trim() : '');
-const safeNext = (v) => (typeof v === 'string' && /^\/(?!\/)/.test(v) ? v : '/');
+const safeNext = (v, fallback = '/') => (typeof v === 'string' && /^\/(?!\/)/.test(v) ? v : fallback);
 const categoryBySlug = (slug) => categories.find((c) => c.slug === slug);
 
 function signIn(req, user, cb) {
@@ -110,11 +110,16 @@ app.get('/category/:slug', (req, res, next) => {
 
 // ---------- Accounts ----------
 
-app.get('/signup', (req, res) => {
-  res.render('signup', { title: 'Sign up', noindex: true, errors: [], values: {} });
+// Accounts are only for sellers. Buyers browse and contact shops without one.
+// Already logged in? Go straight to your shops.
+const redirectIfLoggedIn = (req, res, next) => (req.session.user ? res.redirect('/my/listings') : next());
+
+app.get('/signup', redirectIfLoggedIn, (req, res) => {
+  res.render('signup', { title: 'Become a seller', noindex: true, errors: [], values: {}, next: safeNext(req.query.next, '/sell') });
 });
 
-app.post('/signup', (req, res, next) => {
+app.post('/signup', redirectIfLoggedIn, (req, res, next) => {
+  const nextUrl = safeNext(req.body.next, '/sell');
   const values = {
     email: trim(req.body.email).toLowerCase(),
     firstName: trim(req.body.firstName),
@@ -130,7 +135,7 @@ app.post('/signup', (req, res, next) => {
     errors.push('An account with that email already exists. Try logging in.');
   }
   if (errors.length) {
-    return res.status(400).render('signup', { title: 'Sign up', noindex: true, errors, values });
+    return res.status(400).render('signup', { title: 'Become a seller', noindex: true, errors, values, next: nextUrl });
   }
 
   const result = db.prepare(
@@ -138,22 +143,22 @@ app.post('/signup', (req, res, next) => {
   ).run(values.email, values.firstName, values.otherName, hashPassword(password));
 
   const user = { id: Number(result.lastInsertRowid), first_name: values.firstName, email: values.email };
-  signIn(req, user, (err) => (err ? next(err) : res.redirect('/')));
+  signIn(req, user, (err) => (err ? next(err) : res.redirect(nextUrl)));
 });
 
-app.get('/login', (req, res) => {
-  res.render('login', { title: 'Log in', noindex: true, error: null, email: '', next: safeNext(req.query.next) });
+app.get('/login', redirectIfLoggedIn, (req, res) => {
+  res.render('login', { title: 'Seller login', noindex: true, error: null, email: '', next: safeNext(req.query.next, '/my/listings') });
 });
 
-app.post('/login', (req, res, next) => {
+app.post('/login', redirectIfLoggedIn, (req, res, next) => {
   const email = trim(req.body.email).toLowerCase();
   const password = typeof req.body.password === 'string' ? req.body.password : '';
-  const nextUrl = safeNext(req.body.next);
+  const nextUrl = safeNext(req.body.next, '/my/listings');
 
   const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
   if (!user || !verifyPassword(password, user.password_hash)) {
     return res.status(401).render('login', {
-      title: 'Log in', noindex: true, error: 'Wrong email or password.', email, next: nextUrl,
+      title: 'Seller login', noindex: true, error: 'Wrong email or password.', email, next: nextUrl,
     });
   }
   signIn(req, user, (err) => (err ? next(err) : res.redirect(nextUrl)));

@@ -3,7 +3,16 @@
     <section class="hero">
         <span class="eyebrow">Sell on PATA</span>
         <h1>Put your business <span class="grad-text">on the map.</span></h1>
-        <p class="lead">Advertise to the buyers around you. Looking to buy instead? <a href="/">Browse listings</a>.</p>
+        <p class="lead">Advertise to the buyers around you. Looking to buy instead? <a href="/">Browse listings</a>, no account needed.</p>
+        <% if (!user) { %>
+            <div class="seller-cta">
+                <p><strong>Selling needs a free seller account.</strong> Buyers never need one.</p>
+                <div class="actions">
+                    <a href="/signup" class="btn btn-primary">Create a seller account</a>
+                    <a href="/login?next=/sell" class="btn">Seller login</a>
+                </div>
+            </div>
+        <% } %>
     </section>
     <div class="choices">
         <a class="card choice" href="/sell/goods">

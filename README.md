@@ -22,7 +22,9 @@ The database is created automatically at `data/pata.db`. Delete that file to sta
 ## What it does
 
 - **Browse**: the home page lists every category. Each category page shows the sellers listed in it.
-- **Sign up / log in**: accounts are stored with scrypt-hashed passwords.
+- **Accounts are for sellers only.** Buyers browse shops, see maps and hours, and call sellers without
+  signing up. Sellers create an account (`/signup`) and log in (`/login`) to list and manage their
+  shops; passwords are stored scrypt-hashed.
 - **Sell**: logged-in users list a product (`/sell/goods`) or a service (`/sell/services`). Sellers give
   their street, building or landmark, drop a pin on a map (or use their phone's location), and set
   opening and closing times for each day of the week.
