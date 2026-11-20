@@ -3,12 +3,12 @@
 An online marketplace that links local buyers with sellers of goods (groceries, mutura, clothing,
 foodstuff) and services (barbers, cleaners, tailors, technicians).
 
-Built with **Node.js + Express**, **EJS** templates and **SQLite** (Node's built-in driver, so there is
-no database server to install).
+Built with **Node.js + Express**, **EJS** templates and **Postgres**. Live at **https://pata.unknownkenya.com**,
+hosted on **Vercel** with the database on **Neon** (Lakebase Postgres).
 
 ## Run it
 
-Requires Node.js 22.13 or newer.
+Requires Node.js 24.
 
 ```
 npm install
@@ -17,7 +17,20 @@ npm start
 
 Then open http://localhost:3000. Use `npm run dev` instead to restart automatically when you edit files.
 
-The database is created automatically at `data/pata.db`. Delete that file to start fresh.
+Locally there is nothing else to install: without `DATABASE_URL`, the app runs an embedded Postgres (PGlite)
+in `data/pgdata`, so local work never touches live data. Delete that folder to start fresh.
+
+`npm run build` checks that the server loads and every template compiles, then applies the schema
+(`npm run migrate`) when a database is configured.
+
+## Deploying
+
+- Hosting: Vercel project `pata` (region `fra1`, Frankfurt), framework Express, set in `vercel.json`.
+  Deploy with `vercel deploy --prod`. Each production build runs the migration before going live.
+- Database: Neon project `pata`, branch `production` (linked in `.neon`, services in `neon.ts`).
+  The app uses the pooled `DATABASE_URL`; migrations use the direct `DATABASE_URL_UNPOOLED`.
+- Logins are kept in a signed cookie (`cookie-session`), so they work across serverless instances.
+- Production settings live in Vercel: `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `SESSION_SECRET`, `SITE_URL`.
 
 ## What it does
 
@@ -54,7 +67,10 @@ free tile server is for light use; on a busy site switch to another tile provide
 
 ```
 server.js      routes (pages, sign up, login, sell, sitemap, robots.txt)
-db.js          SQLite setup and tables
+db.js          Postgres connection, schema and migration (PGlite locally)
+scripts/       build check and migration scripts
+neon.ts        Neon services for the project (Postgres, Neon Auth)
+vercel.json    Vercel settings (Express, Frankfurt region)
 auth.js        password hashing and the login guard
 hours.js       opening hours: form parsing, "open now", schema.org output
 seo.js         shop URLs, page descriptions and structured data
@@ -69,6 +85,7 @@ public/        CSS, images and the map scripts (js/)
 | ---------------- | ----------------------------- |
 | `PORT`           | `3000`                        |
 | `SESSION_SECRET` | a dev-only value; set it in production |
-| `DB_PATH`        | `data/pata.db`                |
+| `DATABASE_URL`   | none: embedded local Postgres; Neon pooled URL in production |
+| `DATABASE_URL_UNPOOLED` | direct Neon URL, used only for migrations |
 | `SITE_URL`       | taken from the request; set it in production |
 | `TZ_SHOPS`       | `Africa/Nairobi` (time zone for "Open now") |

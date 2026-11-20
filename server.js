@@ -1,6 +1,6 @@
 const path = require('node:path');
 const express = require('express');
-const session = require('express-session');
+const cookieSession = require('cookie-session');
 
 const db = require('./db');
 const categories = require('./categories');
@@ -10,6 +10,7 @@ const { hashPassword, verifyPassword, requireLogin } = require('./auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const IS_PROD = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL);
 // Public address of the site, used in canonical links, the sitemap and social previews.
 // Set it in production, e.g. SITE_URL=https://pata.co.ke
 const SITE_URL = (process.env.SITE_URL || '').replace(/\/+$/, '');
@@ -25,19 +26,33 @@ Object.assign(app.locals, {
   hoursStatus: (l) => hours.status(hours.parse(l.hours)),
 });
 
+// On Vercel, files in public/ are served by the CDN; locally Express serves them.
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.urlencoded({ extended: false }));
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'dev-only-secret-change-me',
-  resave: false,
-  saveUninitialized: false,
-  cookie: { httpOnly: true, sameSite: 'lax' },
+
+// Logins live in a signed cookie, so they survive across serverless instances.
+if (IS_PROD && !process.env.SESSION_SECRET) throw new Error('Set SESSION_SECRET in production.');
+if (IS_PROD) app.set('trust proxy', 1); // Vercel terminates HTTPS in front of the app
+app.use(cookieSession({
+  name: 'pata',
+  keys: [process.env.SESSION_SECRET || 'dev-only-secret-change-me'],
+  maxAge: 30 * 24 * 60 * 60 * 1000,
+  httpOnly: true,
+  sameSite: 'lax',
+  secure: IS_PROD,
 }));
+
 
 app.use((req, res, next) => {
   res.locals.user = req.session.user || null;
   res.locals.siteUrl = SITE_URL || `${req.protocol}://${req.get('host')}`;
   res.locals.path = req.path;
+  next();
+});
+
+// Make sure the tables exist before the first query (once per cold start).
+app.use(async (req, res, next) => {
+  await db.init();
   next();
 });
 
@@ -50,19 +65,15 @@ const trim = (v) => (typeof v === 'string' ? v.trim() : '');
 const safeNext = (v, fallback = '/') => (typeof v === 'string' && /^\/(?!\/)/.test(v) ? v : fallback);
 const categoryBySlug = (slug) => categories.find((c) => c.slug === slug);
 
-function signIn(req, user, cb) {
-  req.session.regenerate((err) => {
-    if (err) return cb(err);
-    req.session.user = { id: user.id, firstName: user.first_name, email: user.email };
-    cb();
-  });
+function signIn(req, user) {
+  req.session.user = { id: user.id, firstName: user.first_name, email: user.email };
 }
 
 // ---------- Browsing ----------
 
-app.get('/', (req, res) => {
+app.get('/', async (req, res) => {
   const counts = Object.fromEntries(
-    db.prepare('SELECT category, COUNT(*) AS n FROM listings GROUP BY category').all()
+    (await db.query('SELECT category, COUNT(*)::int AS n FROM listings GROUP BY category'))
       .map((r) => [r.category, r.n]),
   );
   const { siteUrl } = res.locals;
@@ -81,12 +92,12 @@ app.get('/', (req, res) => {
   });
 });
 
-app.get('/category/:slug', (req, res, next) => {
+app.get('/category/:slug', async (req, res, next) => {
   const category = categoryBySlug(req.params.slug);
   if (!category) return next();
-  const listings = db.prepare(
-    'SELECT * FROM listings WHERE category = ? ORDER BY created_at DESC, id DESC',
-  ).all(category.slug);
+  const listings = await db.query(
+    'SELECT * FROM listings WHERE category = ? ORDER BY created_at DESC, id DESC', [category.slug],
+  );
   const { siteUrl } = res.locals;
   res.render('category', {
     title: `${category.name} near you`,
@@ -120,7 +131,7 @@ app.get('/signup', redirectIfLoggedIn, (req, res) => {
   res.render('signup', { title: 'Become a seller', noindex: true, errors: [], values: {}, next: safeNext(req.query.next, '/sell') });
 });
 
-app.post('/signup', redirectIfLoggedIn, (req, res, next) => {
+app.post('/signup', redirectIfLoggedIn, async (req, res) => {
   const nextUrl = safeNext(req.body.next, '/sell');
   const values = {
     email: trim(req.body.email).toLowerCase(),
@@ -133,41 +144,43 @@ app.post('/signup', redirectIfLoggedIn, (req, res, next) => {
   if (!/^\S+@\S+\.\S+$/.test(values.email)) errors.push('Enter a valid email address.');
   if (!values.firstName) errors.push('First name is required.');
   if (password.length < 8) errors.push('Password must be at least 8 characters.');
-  if (!errors.length && db.prepare('SELECT 1 FROM users WHERE email = ?').get(values.email)) {
+  if (!errors.length && await db.one('SELECT 1 FROM users WHERE email = ?', [values.email])) {
     errors.push('An account with that email already exists. Try logging in.');
   }
   if (errors.length) {
     return res.status(400).render('signup', { title: 'Become a seller', noindex: true, errors, values, next: nextUrl });
   }
 
-  const result = db.prepare(
-    'INSERT INTO users (email, first_name, other_name, password_hash) VALUES (?, ?, ?, ?)',
-  ).run(values.email, values.firstName, values.otherName, hashPassword(password));
-
-  const user = { id: Number(result.lastInsertRowid), first_name: values.firstName, email: values.email };
-  signIn(req, user, (err) => (err ? next(err) : res.redirect(nextUrl)));
+  const user = await db.one(
+    'INSERT INTO users (email, first_name, other_name, password_hash) VALUES (?, ?, ?, ?) RETURNING id, email, first_name',
+    [values.email, values.firstName, values.otherName, hashPassword(password)],
+  );
+  signIn(req, user);
+  res.redirect(nextUrl);
 });
 
 app.get('/login', redirectIfLoggedIn, (req, res) => {
   res.render('login', { title: 'Seller login', noindex: true, error: null, email: '', next: safeNext(req.query.next, '/my/listings') });
 });
 
-app.post('/login', redirectIfLoggedIn, (req, res, next) => {
+app.post('/login', redirectIfLoggedIn, async (req, res) => {
   const email = trim(req.body.email).toLowerCase();
   const password = typeof req.body.password === 'string' ? req.body.password : '';
   const nextUrl = safeNext(req.body.next, '/my/listings');
 
-  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+  const user = await db.one('SELECT * FROM users WHERE email = ?', [email]);
   if (!user || !verifyPassword(password, user.password_hash)) {
     return res.status(401).render('login', {
       title: 'Seller login', noindex: true, error: 'Wrong email or password.', email, next: nextUrl,
     });
   }
-  signIn(req, user, (err) => (err ? next(err) : res.redirect(nextUrl)));
+  signIn(req, user);
+  res.redirect(nextUrl);
 });
 
-app.post('/logout', (req, res, next) => {
-  req.session.destroy((err) => (err ? next(err) : res.redirect('/')));
+app.post('/logout', (req, res) => {
+  req.session = null;
+  res.redirect('/');
 });
 
 // ---------- Selling ----------
@@ -256,28 +269,28 @@ app.get('/sell/:kind', requireLogin, (req, res, next) => {
   renderSellForm(res, req.params.kind, { hours: hours.DEFAULT_HOURS });
 });
 
-app.post('/sell/:kind', requireLogin, (req, res, next) => {
+app.post('/sell/:kind', requireLogin, async (req, res, next) => {
   const kindKey = req.params.kind;
   if (!KINDS[kindKey]) return next();
 
   const { values, errors, row } = readListingForm(req.body, kindKey);
   if (errors.length) return renderSellForm(res, kindKey, values, errors, 400);
 
-  const result = db.prepare(`
+  const listing = await db.one(`
     INSERT INTO listings (user_id, kind, category, title, shop_name, description, phone,
                           county, constituency, ward, street, latitude, longitude, hours)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(req.session.user.id, kindKey, ...row);
-  const listing = db.prepare('SELECT * FROM listings WHERE id = ?').get(result.lastInsertRowid);
+    RETURNING *
+  `, [req.session.user.id, kindKey, ...row]);
   res.redirect(seo.listingPath(listing));
 });
 
 // ---------- Managing your own listings ----------
 
 // Loads the listing in the URL if it belongs to the logged-in user; otherwise 404.
-function ownListing(req, res, next) {
-  const listing = db.prepare('SELECT * FROM listings WHERE id = ? AND user_id = ?')
-    .get(Number(req.params.id) || 0, req.session.user.id);
+async function ownListing(req, res, next) {
+  const listing = await db.one('SELECT * FROM listings WHERE id = ? AND user_id = ?',
+    [Number(req.params.id) || 0, req.session.user.id]);
   if (!listing) {
     return res.status(404).render('message', { title: 'Not found', noindex: true, message: "Sorry, we couldn't find that page." });
   }
@@ -285,9 +298,9 @@ function ownListing(req, res, next) {
   next();
 }
 
-app.get('/my/listings', requireLogin, (req, res) => {
-  const listings = db.prepare('SELECT * FROM listings WHERE user_id = ? ORDER BY created_at DESC, id DESC')
-    .all(req.session.user.id);
+app.get('/my/listings', requireLogin, async (req, res) => {
+  const listings = await db.query('SELECT * FROM listings WHERE user_id = ? ORDER BY created_at DESC, id DESC',
+    [req.session.user.id]);
   res.render('my-listings', {
     title: 'My shops',
     noindex: true,
@@ -302,28 +315,28 @@ app.get('/listing/:id/edit', requireLogin, ownListing, (req, res) => {
   renderSellForm(res, listing.kind, listingToValues(listing), [], 200, listing);
 });
 
-app.post('/listing/:id/edit', requireLogin, ownListing, (req, res) => {
+app.post('/listing/:id/edit', requireLogin, ownListing, async (req, res) => {
   const { listing } = res.locals;
   const { values, errors, row } = readListingForm(req.body, listing.kind);
   if (errors.length) return renderSellForm(res, listing.kind, values, errors, 400, listing);
 
-  db.prepare(`
+  await db.query(`
     UPDATE listings SET category = ?, title = ?, shop_name = ?, description = ?, phone = ?,
       county = ?, constituency = ?, ward = ?, street = ?, latitude = ?, longitude = ?, hours = ?,
-      updated_at = CURRENT_TIMESTAMP
+      updated_at = now()
     WHERE id = ? AND user_id = ?
-  `).run(...row, listing.id, req.session.user.id);
+  `, [...row, listing.id, req.session.user.id]);
   res.redirect('/my/listings?done=updated');
 });
 
-app.post('/listing/:id/delete', requireLogin, ownListing, (req, res) => {
-  db.prepare('DELETE FROM listings WHERE id = ? AND user_id = ?').run(res.locals.listing.id, req.session.user.id);
+app.post('/listing/:id/delete', requireLogin, ownListing, async (req, res) => {
+  await db.query('DELETE FROM listings WHERE id = ? AND user_id = ?', [res.locals.listing.id, req.session.user.id]);
   res.redirect('/my/listings?done=deleted');
 });
 
 // Public shop page. Registered after /listing/:id/edit so "edit" is never read as a slug.
-app.get('/listing/:id{/:slug}', (req, res, next) => {
-  const listing = db.prepare('SELECT * FROM listings WHERE id = ?').get(Number(req.params.id) || 0);
+app.get('/listing/:id{/:slug}', async (req, res, next) => {
+  const listing = await db.one('SELECT * FROM listings WHERE id = ?', [Number(req.params.id) || 0]);
   if (!listing) return next();
   const canonical = seo.listingPath(listing);
   // Keep one address per listing so search engines don't see duplicates.
@@ -366,14 +379,14 @@ app.get('/robots.txt', (req, res) => {
   ].join('\n'));
 });
 
-app.get('/sitemap.xml', (req, res) => {
+app.get('/sitemap.xml', async (req, res) => {
   const { siteUrl } = res.locals;
   const urls = [
     { loc: '/', priority: '1.0' },
     { loc: '/sell', priority: '0.5' },
     ...categories.map((c) => ({ loc: `/category/${c.slug}`, priority: '0.8' })),
-    ...db.prepare('SELECT * FROM listings').all().map((l) => ({
-      loc: seo.listingPath(l), lastmod: (l.updated_at || l.created_at).slice(0, 10), priority: '0.7',
+    ...(await db.query('SELECT * FROM listings')).map((l) => ({
+      loc: seo.listingPath(l), lastmod: new Date(l.updated_at || l.created_at).toISOString().slice(0, 10), priority: '0.7',
     })),
   ];
   const body = urls.map((u) => [
@@ -406,6 +419,10 @@ app.use((err, req, res, _next) => {
   res.status(500).render('message', { title: 'Error', noindex: true, message: 'Something went wrong. Please try again.' });
 });
 
-app.listen(PORT, () => {
-  console.log(`PATA running at http://localhost:${PORT}`);
-});
+// Vercel imports the app; locally `npm start` runs this file and listens on a port.
+module.exports = app;
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`PATA running at http://localhost:${PORT}`);
+  });
+}
