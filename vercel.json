@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "express",
+  "regions": ["fra1"],
+  "functions": {
+    "server.js": {
+      "includeFiles": "node_modules/@electric-sql/pglite/dist/**"
+    }
+  }
+}
