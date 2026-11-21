@@ -671,3 +671,44 @@ a.card.svc-tile { display: flex; align-items: center; gap: 14px; padding: 12px 1
 /* Leave room for the sticky header when jumping to a section. */
 section[id] { scroll-margin-top: 90px; }
 @media (max-width: 720px) { section[id] { scroll-margin-top: 150px; } }
+
+/* ---------- Search near you ---------- */
+
+.head-search { position: relative; flex: 1; max-width: 320px; margin: 0 auto 0 8px; }
+.head-search svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--violet); pointer-events: none; }
+.head-search input { padding: 9px 14px 9px 38px; font-size: 14px; border-radius: 999px; }
+.is-locating { cursor: progress; opacity: 0.7; }
+
+.search-page .page-head { padding-top: 40px; text-align: center; }
+.search-again { margin-top: 18px; }
+.area-bar {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 16px;
+  margin: 22px 0 0; padding: 12px 16px; border-radius: 14px;
+  background: var(--surface); border: 1px solid var(--border);
+}
+.area-bar p { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 15px; }
+.area-bar p svg { flex: none; color: var(--pink); }
+.area-bar .sub { color: var(--muted); font-size: 13px; }
+.area-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.area-picker { margin-top: 16px; padding: 18px 20px; }
+.area-picker summary { cursor: pointer; font-weight: 700; }
+.area-picker[open] summary { margin-bottom: 12px; }
+.area-picker .hint { margin-bottom: 14px; }
+.use-loc { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.use-loc .btn { gap: 8px; }
+.use-loc .radius { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--muted); }
+.use-loc .radius select { width: auto; padding-top: 8px; padding-bottom: 8px; }
+.geo-msg { margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; font-size: 14px; font-weight: 600;
+  color: var(--warn-text); background: var(--warn-bg); border: 1px solid var(--warn-border); }
+.or { display: flex; align-items: center; gap: 12px; margin: 16px 0; color: var(--muted); font-size: 13px; font-weight: 600; }
+.or::before, .or::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.cols.three { grid-template-columns: repeat(3, 1fr); }
+.card-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.search-page .grid.section { padding-top: 28px; }
+.widen-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 10px; }
+
+@media (max-width: 720px) {
+  .head-search { order: 3; flex-basis: 100%; max-width: none; margin: 4px 0 0; }
+  .cols.three { grid-template-columns: 1fr; }
+}
