@@ -1,4 +1,4 @@
-// Home page: filter categories as you type.
+// Home page: filter categories as you type. Enter searches listings near you (search.js).
 (function () {
   var input = document.getElementById('find');
   if (!input) return;
@@ -41,12 +41,6 @@
   }
 
   input.addEventListener('input', apply);
-  input.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') {
-      var first = document.querySelector('.findable:not([hidden])');
-      if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  });
   document.getElementById('clear-find').addEventListener('click', function () {
     input.value = '';
     apply();

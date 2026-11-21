@@ -56,7 +56,8 @@
                     </div>
                     <div class="field">
                         <label for="county">County</label>
-                        <input id="county" type="text" name="county" value="<%= values.county || '' %>" placeholder="e.g. Nairobi" required>
+                        <input id="county" type="text" name="county" value="<%= values.county || '' %>" placeholder="e.g. Nairobi" list="county-list" autocomplete="off" required>
+                        <datalist id="county-list"><% counties.forEach(function (c) { %><option value="<%= c %>"><% }) %></datalist>
                     </div>
                     <div class="field">
                         <label for="constituency">Constituency <span class="opt">(optional)</span></label>

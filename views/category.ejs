@@ -20,28 +20,7 @@
         </div>
     <% } else { %>
         <div class="grid section">
-            <% listings.forEach(function (l) { const st = hoursStatus(l); %>
-                <article class="card lift listing">
-                    <div class="top">
-                        <div class="avatar"><%= l.shop_name.charAt(0).toUpperCase() %></div>
-                        <div>
-                            <h2 class="h-card"><a href="<%= listingPath(l) %>" class="stretch"><%= l.shop_name %></a></h2>
-                            <div class="what"><%= l.title %></div>
-                        </div>
-                    </div>
-                    <% if (st) { %><span class="status sm <%= st.isOpen ? 'open' : 'closed' %>"><%= st.label %></span><% } %>
-                    <% if (l.description) { %><p class="desc"><%= l.description %></p><% } %>
-                    <div class="meta">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 1 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
-                        <%= [l.street, place(l)].filter(Boolean).join(' · ') %>
-                    </div>
-                    <div class="row-btns">
-                        <a class="btn btn-sm" href="tel:<%= l.phone.replace(/\s/g, '') %>">Call</a>
-                        <% if (l.website) { %><a class="btn btn-sm" href="<%= l.website %>" target="_blank" rel="noopener nofollow ugc">Website</a><% } %>
-                        <a class="btn btn-sm btn-primary" href="<%= listingPath(l) %>">View shop →</a>
-                    </div>
-                </article>
-            <% }) %>
+            <% listings.forEach(function (l) { %><%- include('partials/listing-card', { l: l }) %><% }) %>
         </div>
     <% } %>
 
