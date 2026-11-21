@@ -37,6 +37,7 @@
                     </div>
                     <div class="row-btns">
                         <a class="btn btn-sm" href="tel:<%= l.phone.replace(/\s/g, '') %>">Call</a>
+                        <% if (l.website) { %><a class="btn btn-sm" href="<%= l.website %>" target="_blank" rel="noopener nofollow ugc">Website</a><% } %>
                         <a class="btn btn-sm btn-primary" href="<%= listingPath(l) %>">View shop →</a>
                     </div>
                 </article>

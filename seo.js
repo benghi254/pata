@@ -47,6 +47,7 @@ function listingJsonLd(l, category, siteUrl) {
     },
     openingHoursSpecification: hours.toSchema(hours.parse(l.hours)),
   };
+  if (l.website) data.sameAs = [l.website];
   if (l.latitude != null && l.longitude != null) {
     data.geo = { '@type': 'GeoCoordinates', latitude: l.latitude, longitude: l.longitude };
     data.hasMap = `https://www.google.com/maps/search/?api=1&query=${l.latitude},${l.longitude}`;

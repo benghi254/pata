@@ -51,6 +51,10 @@
                         <input id="phone" type="tel" name="phone" value="<%= values.phone || '' %>" placeholder="0712 345678" autocomplete="tel" required>
                     </div>
                     <div class="field">
+                        <label for="website">Website <span class="opt">(optional)</span></label>
+                        <input id="website" type="text" inputmode="url" name="website" value="<%= values.website || '' %>" placeholder="e.g. www.myshop.co.ke" autocomplete="url" maxlength="400">
+                    </div>
+                    <div class="field">
                         <label for="county">County</label>
                         <input id="county" type="text" name="county" value="<%= values.county || '' %>" placeholder="e.g. Nairobi" required>
                     </div>

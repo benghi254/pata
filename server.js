@@ -219,6 +219,7 @@ function listingToValues(l) {
     shopName: l.shop_name,
     description: l.description,
     phone: l.phone,
+    website: l.website || '',
     county: l.county,
     constituency: l.constituency,
     ward: l.ward,
@@ -229,9 +230,25 @@ function listingToValues(l) {
   };
 }
 
+// Turns what a seller typed as their website into a full http(s) address.
+// Returns '' for blank, or null when it isn't a usable web address.
+function normalizeWebsite(input) {
+  if (!input) return '';
+  const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(input) ? input : `https://${input}`;
+  let url;
+  try {
+    url = new URL(withScheme);
+  } catch {
+    return null;
+  }
+  if (!['http:', 'https:'].includes(url.protocol) || !/\.[a-z]{2,}$/i.test(url.hostname)) return null;
+  if (url.username || url.password || url.href.length > 500) return null;
+  return url.href;
+}
+
 // Reads and checks the sell / edit form. Returns { values, errors, row }.
 function readListingForm(body, kindKey) {
-  const fields = ['category', 'title', 'shopName', 'description', 'phone', 'county', 'constituency', 'ward', 'street', 'latitude', 'longitude'];
+  const fields = ['category', 'title', 'shopName', 'description', 'phone', 'website', 'county', 'constituency', 'ward', 'street', 'latitude', 'longitude'];
   const values = Object.fromEntries(fields.map((f) => [f, trim(body[f])]));
   const parsedHours = hours.fromForm(body);
   values.hours = parsedHours.hours;
@@ -241,6 +258,9 @@ function readListingForm(body, kindKey) {
   if (!values.title) errors.push(kindKey === 'goods' ? 'Product name is required.' : 'Service is required.');
   if (!values.shopName) errors.push('Shop / business name is required.');
   if (!/^\+?[0-9 ]{9,15}$/.test(values.phone)) errors.push('Enter a valid phone number, e.g. 0712 345678.');
+  const website = normalizeWebsite(values.website);
+  if (website === null) errors.push('Enter a valid website address, e.g. www.myshop.co.ke.');
+  else values.website = website;
   if (!values.county) errors.push('County is required.');
   if (!values.street) errors.push('Enter the street, building or a landmark near your shop.');
 
@@ -259,7 +279,7 @@ function readListingForm(body, kindKey) {
   const row = [
     values.category, values.title, values.shopName, values.description, values.phone,
     values.county, values.constituency, values.ward, values.street, lat, lng,
-    JSON.stringify(parsedHours.hours),
+    JSON.stringify(parsedHours.hours), website || '',
   ];
   return { values, errors, row };
 }
@@ -278,8 +298,8 @@ app.post('/sell/:kind', requireLogin, async (req, res, next) => {
 
   const listing = await db.one(`
     INSERT INTO listings (user_id, kind, category, title, shop_name, description, phone,
-                          county, constituency, ward, street, latitude, longitude, hours)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                          county, constituency, ward, street, latitude, longitude, hours, website)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     RETURNING *
   `, [req.session.user.id, kindKey, ...row]);
   res.redirect(seo.listingPath(listing));
@@ -323,7 +343,7 @@ app.post('/listing/:id/edit', requireLogin, ownListing, async (req, res) => {
   await db.query(`
     UPDATE listings SET category = ?, title = ?, shop_name = ?, description = ?, phone = ?,
       county = ?, constituency = ?, ward = ?, street = ?, latitude = ?, longitude = ?, hours = ?,
-      updated_at = now()
+      website = ?, updated_at = now()
     WHERE id = ? AND user_id = ?
   `, [...row, listing.id, req.session.user.id]);
   res.redirect('/my/listings?done=updated');
