@@ -26,7 +26,9 @@ in `data/pgdata`, so local work never touches live data. Delete that folder to s
 ## Deploying
 
 - Hosting: Vercel project `pata` (region `fra1`, Frankfurt), framework Express, set in `vercel.json`.
-  Deploy with `vercel deploy --prod`. Each production build runs the migration before going live.
+  The project is connected to GitHub: every push to `main` deploys production, and every other branch or
+  pull request gets a preview deployment. Each production build runs the migration before going live.
+  Previews have no access to the live database; they use a throwaway embedded one (`PGLITE_DIR=/tmp/...`).
 - Database: Neon project `pata`, branch `production` (linked in `.neon`, services in `neon.ts`).
   The app uses the pooled `DATABASE_URL`; migrations use the direct `DATABASE_URL_UNPOOLED`.
 - Logins are kept in a signed cookie (`cookie-session`), so they work across serverless instances.
