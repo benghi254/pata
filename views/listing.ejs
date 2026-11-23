@@ -14,6 +14,9 @@
             <span class="eyebrow"><%= category.name %></span>
             <h1><%= listing.shop_name %></h1>
             <p class="what"><%= listing.title %></p>
+            <% if (ratingSummary.count) { %>
+                <a href="#rate" class="rating-link"><%- include('partials/stars', { value: ratingSummary.average, size: '' }) %> <b><%= ratingSummary.average.toFixed(1) %></b> <span class="muted">(<%= ratingSummary.count %>)</span></a>
+            <% } %>
         </div>
         <% if (can) { %>
             <a href="/listing/<%= listing.id %>/inventory" class="btn btn-sm">Manage inventory</a>
@@ -87,6 +90,8 @@
                     <p class="hint">This seller hasn't pinned their shop on the map yet.</p>
                 <% } %>
             </div>
+
+            <%- include('partials/ratings') %>
         </div>
 
         <aside class="shop-side">

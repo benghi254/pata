@@ -121,6 +121,43 @@ const SCHEMA = `
     used_at      TIMESTAMPTZ
   );
   CREATE INDEX IF NOT EXISTS listing_invites_listing ON listing_invites(listing_id);
+
+  -- Buyers who proved a phone number with an SMS code. One phone = one buyer, so one
+  -- person can't rate a shop many times. phone is 07XXXXXXXX / 01XXXXXXXX.
+  CREATE TABLE IF NOT EXISTS buyers (
+    id           SERIAL PRIMARY KEY,
+    phone        TEXT NOT NULL UNIQUE,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    verified_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+
+  -- SMS codes sent to prove a phone. Only a hash of each code is kept. ip_hash limits how many
+  -- codes one network can request (the raw address is not stored).
+  CREATE TABLE IF NOT EXISTS phone_codes (
+    id          SERIAL PRIMARY KEY,
+    phone       TEXT NOT NULL,
+    code_hash   TEXT NOT NULL,
+    ip_hash     TEXT NOT NULL DEFAULT '',
+    attempts    INTEGER NOT NULL DEFAULT 0,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at  TIMESTAMPTZ NOT NULL,
+    used_at     TIMESTAMPTZ
+  );
+  CREATE INDEX IF NOT EXISTS phone_codes_phone ON phone_codes(phone, created_at DESC);
+  CREATE INDEX IF NOT EXISTS phone_codes_ip ON phone_codes(ip_hash, created_at DESC);
+
+  -- One rating per verified buyer per shop; rating again replaces it.
+  CREATE TABLE IF NOT EXISTS ratings (
+    listing_id    INTEGER NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+    buyer_id      INTEGER NOT NULL REFERENCES buyers(id) ON DELETE CASCADE,
+    stars         INTEGER NOT NULL CHECK (stars BETWEEN 1 AND 5),
+    comment       TEXT NOT NULL DEFAULT '',
+    display_name  TEXT NOT NULL DEFAULT '',
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ,
+    PRIMARY KEY (listing_id, buyer_id)
+  );
+  CREATE INDEX IF NOT EXISTS ratings_listing ON ratings(listing_id, created_at DESC);
 `;
 
 // Neon URLs say sslmode=require; pin the strict certificate check pg uses today

@@ -889,3 +889,47 @@ html.map-open, html.map-open body { overflow: hidden; }
   .map-wrap .map { height: 60vh; min-height: 300px; max-height: 480px; }
   .map-search .btn { flex: none; }
 }
+
+/* ---------- Ratings ---------- */
+
+.stars { position: relative; display: inline-block; color: #d9dcf2; letter-spacing: 1px; font-size: 16px; line-height: 1; white-space: nowrap; vertical-align: -1px; }
+.stars-on { position: absolute; left: 0; top: 0; overflow: hidden; color: var(--amber); }
+.stars.sm { font-size: 13px; }
+.stars.lg { font-size: 24px; }
+.rating-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; color: var(--text); font-size: 14px; }
+.rating-link:hover { color: var(--accent); }
+.card-rating { display: flex; align-items: center; gap: 5px; font-size: 13px; margin-top: 2px; }
+
+.rating-summary { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; margin-bottom: 18px; }
+.rating-big { display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
+.rating-big b { font-family: var(--display); font-size: 40px; line-height: 1; }
+.rating-big .muted { font-size: 13px; }
+.rating-bars { list-style: none; margin: 0; padding: 0; flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 4px; }
+.rating-bars li { display: grid; grid-template-columns: 34px 1fr 28px; align-items: center; gap: 8px; font-size: 13px; }
+.rating-bars .bar { height: 8px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+.rating-bars .bar span { display: block; height: 100%; background: var(--amber); border-radius: 99px; }
+
+.rate-box { padding: 16px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--border); margin-bottom: 18px; }
+.rate-box .hint:last-child { margin-bottom: 0; }
+.rate-title { font-size: 16px; margin: 0 0 8px; }
+.rate-phone { display: flex; gap: 8px; flex-wrap: wrap; }
+.rate-phone input { flex: 1 1 200px; width: auto; background: #fff; }
+.rate-form textarea, .rate-form input { background: #fff; }
+.rate-foot { font-size: 13px; margin-top: 10px; }
+.rate-foot .linklike { color: var(--accent); font-weight: 600; padding: 0; font-size: 13px; }
+
+/* Star picker: radios in 5..1 order, shown right-to-left so "this star and the ones before it" light up. */
+.star-pick { display: inline-flex; flex-direction: row-reverse; gap: 2px; margin: 0 0 12px; }
+.star-pick input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.star-pick label { font-size: 38px; line-height: 1; color: #d9dcf2; cursor: pointer; padding: 0 2px; transition: color 0.15s, transform 0.15s; }
+.star-pick label:hover, .star-pick label:hover ~ label,
+.star-pick input:checked ~ label { color: var(--amber); }
+.star-pick label:hover { transform: scale(1.12); }
+.star-pick input:focus-visible + label { outline: 2px solid var(--violet); outline-offset: 2px; border-radius: 6px; }
+
+.rating-list { list-style: none; margin: 0; padding: 0; }
+.rating-list li { padding: 12px 0; border-top: 1px solid var(--border); }
+.rating-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; }
+.rating-top time { font-size: 12px; }
+.rating-list p { margin: 6px 0 0; font-size: 14px; overflow-wrap: anywhere; white-space: pre-line; }
+.code-input { font-size: 26px; letter-spacing: 0.4em; text-align: center; font-family: var(--display); }
