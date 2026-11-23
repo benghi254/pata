@@ -1,0 +1,55 @@
+<%- include('partials/header') %>
+<% const st = statuses[order.status]; const open = ['pending', 'accepted', 'ready'].includes(order.status); %>
+<div class="wrap panel-page">
+    <div class="panel wide">
+        <a href="/orders" class="back">← My orders</a><br>
+        <span class="eyebrow">Pickup order #<%= order.id %></span>
+        <h1><%= shop.shop_name %></h1>
+        <% if (flash) { %><p class="notice <%= flash.type === 'bad' ? 'bad' : '' %>" role="status"><%= flash.text %></p><% } %>
+        <p><span class="order-status tone-<%= st.tone %>"><%= st.label %></span></p>
+        <% if (order.reason && ['declined', 'cancelled'].includes(order.status)) { %><p class="hint"><%= order.reason %></p><% } %>
+
+        <ol class="order-steps" aria-label="Order progress">
+            <% [['pending', 'Sent'], ['accepted', 'Accepted'], ['ready', 'Ready'], ['collected', 'Collected']].forEach(function ([key, label], i) {
+                 const order_ = ['pending', 'accepted', 'ready', 'collected'];
+                 const reached = order_.indexOf(order.status) >= i; %>
+                <li class="<%= reached ? 'done' : '' %>"><%= label %></li>
+            <% }) %>
+        </ol>
+
+        <% if (open) { %>
+            <div class="pickup-code">
+                <span>Pickup code</span>
+                <b><%= order.pickup_code %></b>
+                <small>Show this at the shop when you collect.</small>
+            </div>
+        <% } %>
+
+        <dl class="order-facts">
+            <dt>Pickup</dt><dd><%= fmtWhen(order.pickup_at) %></dd>
+            <dt>Where</dt><dd><%= [shop.street, place(shop)].filter(Boolean).join(' · ') %></dd>
+            <dt>Name</dt><dd><%= order.buyer_name %></dd>
+            <% if (order.note) { %><dt>Note</dt><dd><%= order.note %></dd><% } %>
+        </dl>
+
+        <%- include('partials/order-lines', { o: order, items: items }) %>
+
+        <div class="form-actions">
+            <a class="btn btn-primary" href="tel:<%= shop.phone.replace(/\s/g, '') %>">Call the shop</a>
+            <a class="btn" href="<%= directionsUrl %>" target="_blank" rel="noopener">Directions</a>
+            <a class="btn" href="<%= listingPath(shop) %>">Shop page</a>
+        </div>
+        <% if (canCancel) { %>
+            <form method="post" action="/orders/<%= order.id %>/cancel" class="danger-zone confirm-cancel">
+                <div><strong>Can't make it?</strong><p class="hint">Cancel so the shop can sell the items to someone else.</p></div>
+                <button type="submit" class="btn btn-sm btn-danger">Cancel order</button>
+            </form>
+        <% } %>
+    </div>
+</div>
+<script>
+  document.querySelectorAll('form.confirm-cancel').forEach(function (f) {
+    f.addEventListener('submit', function (e) { if (!window.confirm('Cancel this order?')) e.preventDefault(); });
+  });
+</script>
+<%- include('partials/footer') %>

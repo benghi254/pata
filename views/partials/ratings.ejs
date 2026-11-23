@@ -3,7 +3,7 @@
 <% const s = ratingSummary; const here = listingPath(listing); %>
 <section class="card pad ratings" id="rate">
     <h2 class="h-sm">Ratings</h2>
-    <% if (flash) { %><p class="notice <%= flash.type === 'bad' ? 'bad' : '' %>" role="status"><%= flash.text %></p><% } %>
+    <% if (flash && flash.where !== 'order') { %><p class="notice <%= flash.type === 'bad' ? 'bad' : '' %>" role="status"><%= flash.text %></p><% } %>
 
     <% if (s.count) { %>
         <div class="rating-summary">

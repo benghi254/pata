@@ -1,0 +1,69 @@
+<%# Shop page: "Order for pickup". Locals from orderView() and ratingView() in server.js. %>
+<% if (listing.accept_orders) { const here = listingPath(listing); const d = orderDraft; %>
+<section class="card pad order-box" id="order">
+    <h2 class="h-sm">Order for pickup</h2>
+    <% if (flash && flash.where === 'order') { %><p class="notice <%= flash.type === 'bad' ? 'bad' : '' %>" role="status"><%= flash.text %></p><% } %>
+    <% if (orderBlocked) { %>
+        <p class="hint"><%= orderBlocked %></p>
+    <% } else if (!ordersOn) { %>
+        <p class="hint">Ordering for pickup is coming soon.</p>
+    <% } else if (!orderItems.length) { %>
+        <p class="hint">Nothing is available to order right now. Call the shop to ask.</p>
+    <% } else if (!pickupDays.length) { %>
+        <p class="hint">This shop hasn't set its opening hours yet, so pickup times can't be chosen. Call the shop to order.</p>
+    <% } else if (!buyer) { %>
+        <p class="hint">Choose your items, pay and collect them at the shop when it suits you. To order, first confirm your phone with a free SMS code, so the shop knows the order is real.</p>
+        <form method="post" action="/rate/phone" class="rate-phone">
+            <input type="hidden" name="next" value="<%= here %>#order">
+            <label for="order-phone" class="visually-hidden">Your phone number</label>
+            <input id="order-phone" type="tel" name="phone" placeholder="Your phone, e.g. 0712 345678" autocomplete="tel" inputmode="tel" required>
+            <button type="submit" class="btn btn-primary">Send code</button>
+        </form>
+    <% } else { %>
+        <p class="hint">Choose what you want, then when you'll pick it up. You pay at the shop when you collect.</p>
+        <form method="post" action="/listing/<%= listing.id %>/orders" class="order-form" id="order-form">
+            <ul class="order-lines">
+                <% orderItems.forEach(function (i) { const max = i.quantity != null ? Math.min(99, i.quantity) : 99; %>
+                    <li>
+                        <div class="ol-name">
+                            <label for="qty_<%= i.id %>"><strong><%= i.name %></strong></label>
+                            <span class="muted"><%= i.price != null ? kes(i.price) + (i.unit ? ' ' + i.unit : '') : 'Price at pickup' %><% if (i.quantity != null && i.quantity <= 5) { %> · only <%= i.quantity %> left<% } %></span>
+                        </div>
+                        <div class="qty-step">
+                            <button type="button" class="btn btn-sm" data-step="-1" aria-label="One less <%= i.name %>">−</button>
+                            <input type="number" id="qty_<%= i.id %>" name="qty_<%= i.id %>" min="0" max="<%= max %>" step="1" inputmode="numeric"
+                                   value="<%= (d.qty && d.qty['qty_' + i.id]) || '' %>" placeholder="0" data-price="<%= i.price != null ? Number(i.price) : '' %>">
+                            <button type="button" class="btn btn-sm" data-step="1" aria-label="One more <%= i.name %>">+</button>
+                        </div>
+                    </li>
+                <% }) %>
+            </ul>
+            <p class="order-total" id="order-total" aria-live="polite"></p>
+            <div class="cols">
+                <div class="field">
+                    <label for="day">Pickup day</label>
+                    <select id="day" name="day" required>
+                        <% pickupDays.forEach(function (p) { %><option value="<%= p.value %>" <%= d.day === p.value ? 'selected' : '' %>><%= p.label %></option><% }) %>
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="time">Pickup time</label>
+                    <input id="time" type="time" name="time" value="<%= d.time || '' %>" required>
+                </div>
+                <div class="field">
+                    <label for="order-name">Your name</label>
+                    <input id="order-name" name="name" maxlength="40" value="<%= d.name || '' %>" autocomplete="given-name" required>
+                </div>
+                <div class="field">
+                    <label for="order-note">Note for the shop <span class="opt">(optional)</span></label>
+                    <input id="order-note" name="note" maxlength="300" value="<%= d.note || '' %>" placeholder="e.g. ripe ones please">
+                </div>
+            </div>
+            <p class="hint">The shop will see your name and phone number (<%= buyer.masked %>) to contact you about this order.</p>
+            <button type="submit" class="btn btn-primary btn-block">Send order</button>
+        </form>
+        <p class="rate-foot muted"><a href="/orders">My orders</a></p>
+    <% } %>
+</section>
+<script src="/js/order-form.js" defer></script>
+<% } %>

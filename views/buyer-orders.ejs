@@ -1,0 +1,55 @@
+<%- include('partials/header') %>
+<div class="wrap">
+    <section class="section-head page-head">
+        <div>
+            <span class="eyebrow">Pickup orders</span>
+            <h1>My orders</h1>
+            <p>Orders you placed with your confirmed phone<% if (buyer) { %> (<%= buyer.masked %>)<% } %>.</p>
+        </div>
+    </section>
+    <% if (flash) { %><p class="notice <%= flash.type === 'bad' ? 'bad' : '' %>" role="status"><%= flash.text %></p><% } %>
+
+    <% if (!buyer) { %>
+        <div class="card pad narrow-card">
+            <h2 class="h-sm">Find your orders</h2>
+            <% if (!ordersOn) { %>
+                <p class="hint">Ordering for pickup is coming soon.</p>
+            <% } else { %>
+                <p class="hint">Confirm the phone number you ordered with, and we'll show your orders.</p>
+                <form method="post" action="/rate/phone" class="rate-phone">
+                    <input type="hidden" name="next" value="/orders">
+                    <label for="orders-phone" class="visually-hidden">Your phone number</label>
+                    <input id="orders-phone" type="tel" name="phone" placeholder="Your phone, e.g. 0712 345678" autocomplete="tel" inputmode="tel" required>
+                    <button type="submit" class="btn btn-primary">Send code</button>
+                </form>
+            <% } %>
+        </div>
+    <% } else if (!list.length) { %>
+        <div class="empty">
+            <h2>No orders yet</h2>
+            <p>Find a shop, choose what you want and pick it up when it suits you.</p>
+            <a href="/" class="btn btn-primary">Browse shops</a>
+        </div>
+    <% } else { %>
+        <div class="my-list">
+            <% list.forEach(function (o) { const st = statuses[o.status]; %>
+                <a class="card lift my-item order-row" href="/orders/<%= o.id %>">
+                    <div class="info">
+                        <h2 class="h-card"><%= o.shop_name %> <span class="muted">#<%= o.id %></span></h2>
+                        <div class="meta-line">
+                            <span class="order-status sm tone-<%= st.tone %>"><%= st.label %></span>
+                            <span class="muted">Pickup <%= fmtWhen(o.pickup_at) %></span>
+                        </div>
+                        <div class="muted order-brief"><%= o.items.map(function (l) { return l.quantity + ' × ' + l.name; }).join(', ') %></div>
+                    </div>
+                    <div class="order-amt"><%= kes(o.total) %><% if (o.has_unpriced) { %>+<% } %></div>
+                </a>
+            <% }) %>
+        </div>
+        <form method="post" action="/rate/sign-out" class="inline" style="display:block;margin-top:18px">
+            <input type="hidden" name="next" value="/orders">
+            <button type="submit" class="linklike">Not your number? Sign out</button>
+        </form>
+    <% } %>
+</div>
+<%- include('partials/footer') %>

@@ -6,6 +6,7 @@ const db = require('./db');
 // What an owner can allow an employee to do. Every member can see the inventory.
 const PERMS = [
   ['stock', 'Update stock', 'Record sales, restocks, damages and stock counts'],
+  ['orders', 'Handle orders', 'Accept, decline and hand over pickup orders'],
   ['items', 'Add and edit items', 'Add items, change names and prices, hide or show them'],
   ['delete', 'Delete items', 'Remove items from the catalogue'],
   ['reports', 'See reports', 'Change history, stock value and CSV downloads'],
@@ -16,8 +17,8 @@ const COLUMNS = PERM_KEYS.map((k) => `can_${k}`);
 
 // Ready-made sets so owners don't have to think about each box.
 const PRESETS = {
-  attendant: { label: 'Shop attendant', perms: ['stock'] },
-  supervisor: { label: 'Supervisor', perms: ['stock', 'items', 'reports'] },
+  attendant: { label: 'Shop attendant', perms: ['stock', 'orders'] },
+  supervisor: { label: 'Supervisor', perms: ['stock', 'orders', 'items', 'reports'] },
   manager: { label: 'Manager', perms: PERM_KEYS },
 };
 

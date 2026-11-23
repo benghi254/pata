@@ -12,6 +12,9 @@ const MOVES = {
   damaged: { label: 'Damaged / expired', sign: -1 },
   lost: { label: 'Lost / stolen', sign: -1 },
   count: { label: 'Stock count', sign: 0 },
+  // Used by pickup orders only (not offered in the stock form).
+  order: { label: 'Pickup order', sign: -1, system: true },
+  order_back: { label: 'Pickup order cancelled', sign: 1, system: true },
 };
 
 const ACTIONS = {

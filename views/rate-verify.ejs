@@ -1,8 +1,8 @@
 <%- include('partials/header') %>
 <div class="wrap panel-page">
     <div class="panel">
-        <a href="<%= next %>#rate" class="back">← Back to the shop</a><br>
-        <span class="eyebrow">Rate a shop</span>
+        <a href="<%= next.includes('#') ? next : next + '#rate' %>" class="back">← Back</a><br>
+        <span class="eyebrow">Confirm your phone</span>
         <h1>Enter the code</h1>
         <p class="sub">We sent a 6-digit code by SMS to <strong><%= phone %></strong>. It works for <%= minutes %> minutes.</p>
         <% if (flash) { %><p class="notice <%= flash.type === 'bad' ? 'bad' : '' %>" role="status"><%= flash.text %></p><% } %>
@@ -28,7 +28,7 @@
                 <button type="submit" class="linklike">use another number</button>
             </form>
         </div>
-        <p class="hint" style="margin-top:18px">We only use your number to make sure each person rates a shop once. It is never shown to sellers or other buyers.</p>
+        <p class="hint" style="margin-top:18px">We use your number so each person rates a shop once, and so a shop can reach you about an order you place. It is never shown publicly.</p>
     </div>
 </div>
 <%- include('partials/footer') %>

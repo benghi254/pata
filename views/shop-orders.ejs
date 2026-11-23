@@ -1,0 +1,96 @@
+<%- include('partials/header') %>
+<% const base = '/listing/' + listing.id; %>
+<div class="wrap">
+    <section class="section-head page-head">
+        <div>
+            <a href="/my/listings" class="back">← My shops</a><br>
+            <span class="eyebrow">Pickup orders</span>
+            <h1><%= listing.shop_name %></h1>
+            <p>Accept an order to set its items aside (they come out of your stock), mark it ready, and hand it over when the buyer shows their pickup code. The buyer gets an SMS at each step.</p>
+        </div>
+        <div class="head-actions">
+            <a href="<%= listingPath(listing) %>#order" class="btn btn-sm">View on shop page</a>
+            <a href="<%= base %>/inventory" class="btn btn-sm">Inventory</a>
+        </div>
+    </section>
+
+    <% if (flash) { %><p class="notice <%= flash.type === 'bad' ? 'bad' : '' %>" role="status"><%= flash.text %></p><% } %>
+
+    <div class="card pad orders-setting">
+        <div>
+            <strong><%= listing.accept_orders ? 'Taking pickup orders' : 'Not taking pickup orders' %></strong>
+            <p class="hint">
+                <% if (listing.accept_orders) { %>Buyers can order your shown, in-stock items from your shop page.
+                <% } else { %>Turn this on to let buyers order from your shop page and collect later.<% } %>
+                <% if (!orderableCount) { %> <strong>You have no items to order yet</strong> — <a href="<%= base %>/inventory">add items in Inventory</a>.<% } %>
+                <% if (!hasHours) { %> <strong>Set your opening hours</strong> so buyers can choose a pickup time.<% } %>
+                <% if (!ordersOn) { %> Ordering needs SMS to be set up on PATA, so buyers will see "coming soon" for now.<% } %>
+            </p>
+        </div>
+        <% if (can.shop) { %>
+            <form method="post" action="<%= base %>/orders/setting">
+                <input type="hidden" name="accept" value="<%= listing.accept_orders ? '0' : '1' %>">
+                <button type="submit" class="btn btn-sm <%= listing.accept_orders ? '' : 'btn-primary' %>"><%= listing.accept_orders ? 'Stop taking orders' : 'Start taking orders' %></button>
+            </form>
+        <% } %>
+    </div>
+
+    <nav class="filters orders-tabs" aria-label="Orders">
+        <a class="pill <%= show === 'open' ? 'on' : '' %>" href="<%= base %>/orders">Open (<%= counts.open %>)<% if (counts.pending) { %> · <%= counts.pending %> new<% } %></a>
+        <a class="pill <%= show === 'done' ? 'on' : '' %>" href="<%= base %>/orders?show=done">Finished</a>
+    </nav>
+
+    <% if (!list.length) { %>
+        <p class="hint"><%= show === 'open' ? 'No open orders right now.' : 'No finished orders yet.' %></p>
+    <% } %>
+
+    <div class="orders-list">
+        <% list.forEach(function (o) { const st = statuses[o.status]; const late = ['pending', 'accepted', 'ready'].includes(o.status) && new Date(o.pickup_at) < new Date(); %>
+            <article class="card pad order-card status-<%= o.status %>" id="order-<%= o.id %>">
+                <div class="order-head">
+                    <div>
+                        <h2 class="h-card">#<%= o.id %> · <%= o.buyer_name %></h2>
+                        <div class="meta-line">
+                            <span class="order-status sm tone-<%= st.tone %>"><%= o.status === 'pending' ? 'New order' : st.label %></span>
+                            <span class="<%= late ? 'late' : 'muted' %>">Pickup <%= fmtWhen(o.pickup_at) %><%= late ? ' (time passed)' : '' %></span>
+                        </div>
+                    </div>
+                    <a class="btn btn-sm" href="tel:<%= o.buyer_phone %>">Call <%= o.buyer_phone.replace(/^(\d{4})(\d{3})(\d{3})$/, '$1 $2 $3') %></a>
+                </div>
+                <%- include('partials/order-lines', { o: o, items: o.items }) %>
+                <% if (o.note) { %><p class="order-note"><strong>Note:</strong> <%= o.note %></p><% } %>
+                <% if (o.reason && ['declined', 'cancelled'].includes(o.status)) { %><p class="hint"><%= o.reason %></p><% } %>
+
+                <div class="order-actions">
+                    <% if (o.status === 'pending') { %>
+                        <form method="post" action="<%= base %>/orders/<%= o.id %>/accept" class="inline"><button class="btn btn-sm btn-primary">Accept</button></form>
+                        <form method="post" action="<%= base %>/orders/<%= o.id %>/decline" class="decline-form">
+                            <input name="reason" maxlength="200" placeholder="Reason (optional), e.g. sold out" aria-label="Reason for declining">
+                            <button class="btn btn-sm btn-danger">Decline</button>
+                        </form>
+                    <% } %>
+                    <% if (o.status === 'accepted') { %>
+                        <form method="post" action="<%= base %>/orders/<%= o.id %>/ready" class="inline"><button class="btn btn-sm btn-primary">Mark ready</button></form>
+                    <% } %>
+                    <% if (o.status === 'accepted' || o.status === 'ready') { %>
+                        <form method="post" action="<%= base %>/orders/<%= o.id %>/collected" class="collect-form">
+                            <label for="code-<%= o.id %>" class="visually-hidden">Buyer's pickup code</label>
+                            <input id="code-<%= o.id %>" name="code" inputmode="numeric" maxlength="4" placeholder="Code" autocomplete="off">
+                            <button class="btn btn-sm <%= o.status === 'ready' ? 'btn-primary' : '' %>">Handed over</button>
+                            <label class="check sm"><input type="checkbox" name="skipCode"> I checked the buyer another way</label>
+                        </form>
+                        <form method="post" action="<%= base %>/orders/<%= o.id %>/notcollected" class="inline confirm-nc">
+                            <button class="btn btn-sm">Not collected (return stock)</button>
+                        </form>
+                    <% } %>
+                </div>
+            </article>
+        <% }) %>
+    </div>
+</div>
+<script>
+  document.querySelectorAll('form.confirm-nc').forEach(function (f) {
+    f.addEventListener('submit', function (e) { if (!window.confirm('Cancel this order as not collected? Its items go back into stock.')) e.preventDefault(); });
+  });
+</script>
+<%- include('partials/footer') %>
