@@ -89,16 +89,33 @@
             </fieldset>
             <fieldset>
                 <legend>Exact location on the map <span class="opt">(recommended)</span></legend>
-                <p class="hint">Tap the map where your shop is, or use your phone's location while you're at the shop. You can drag the pin to adjust it.</p>
-                <div class="map-tools">
-                    <button type="button" class="btn btn-sm" id="locate">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8"/></svg>
-                        Use my current location
-                    </button>
-                    <button type="button" class="btn btn-sm" id="clear-pin" hidden>Remove pin</button>
-                    <span class="coords" id="coords" aria-live="polite"></span>
+                <p class="hint">A pin lets buyers find you and get directions. Put it on your shop's door, not just the area.</p>
+                <ol class="map-steps">
+                    <li>
+                        <strong>At the shop now?</strong>
+                        <button type="button" class="btn btn-sm btn-primary" id="locate">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8"/></svg>
+                            Use my current location
+                        </button>
+                    </li>
+                    <li>
+                        <label for="map-q"><strong>Or find a place near your shop</strong></label>
+                        <div class="map-search">
+                            <input type="search" id="map-q" placeholder="e.g. Kangemi market, Moi Avenue, St. Mary's school" autocomplete="off" enterkeyhint="search">
+                            <button type="button" class="btn btn-sm" id="map-go">Find</button>
+                        </div>
+                        <ul class="map-results" id="map-results" hidden></ul>
+                    </li>
+                    <li><strong>Then tap your shop on the map</strong> and drag the pin to the exact spot.</li>
+                </ol>
+                <div class="map-wrap" id="picker-wrap">
+                    <div id="picker" class="map" data-counties="<%= JSON.stringify(countyCentres) %>"></div>
+                    <button type="button" class="btn btn-sm map-full-btn" id="map-full" aria-pressed="false">⛶ Full screen</button>
                 </div>
-                <div id="picker" class="map" data-lat="<%= values.latitude || '' %>" data-lng="<%= values.longitude || '' %>"></div>
+                <div class="pin-bar">
+                    <p class="pin-status" id="coords" aria-live="polite"></p>
+                    <button type="button" class="btn btn-sm" id="clear-pin" hidden>Remove pin</button>
+                </div>
                 <input type="hidden" name="latitude" id="latitude" value="<%= values.latitude || '' %>">
                 <input type="hidden" name="longitude" id="longitude" value="<%= values.longitude || '' %>">
             </fieldset>
@@ -137,5 +154,7 @@
     </div>
 </div>
 <script src="/js/sell-form.js" defer></script>
+<script src="/js/map-common.js" defer></script>
+<script src="/js/map-picker.js" defer></script>
 <% if (editing) { %><script src="/js/confirm-delete.js" defer></script><% } %>
 <%- include('partials/footer') %>

@@ -32,6 +32,7 @@ Object.assign(app.locals, {
   kes: inventory.kes,
   stockState: inventory.stockState,
   places,
+  countyCentres: areas.COUNTIES.map((c) => [c.name, c.lat, c.lng]),
 });
 
 // On Vercel, files in public/ are served by the CDN; locally Express serves them.
