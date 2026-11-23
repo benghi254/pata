@@ -81,7 +81,14 @@ in `data/pgdata`, so local work never touches live data. Delete that folder to s
 - **In production, set `SITE_URL`** (e.g. `https://pata.co.ke`) so links in the sitemap and tags use
   your real domain, then submit `https://your-domain/sitemap.xml` in Google Search Console.
 
-Maps use [Leaflet](https://leafletjs.com) with OpenStreetMap tiles (no API key needed). OpenStreetMap's
+Maps use [Leaflet](https://leafletjs.com) with OpenStreetMap tiles (no API key needed).
+Sellers place their pin by using their phone's location (with its accuracy shown), by searching for a
+place or landmark, or by tapping the map; the map also follows the county, constituency and ward they
+choose, and taps from far out zoom in so the pin can be dragged onto the exact door. Place search uses
+OpenStreetMap's free [Nominatim](https://nominatim.org) service from the seller's browser, only when they
+ask and at most once a second, as its usage policy requires; on a busy site, switch to a paid geocoder.
+On shop pages buyers see the pin labelled with the shop's name, can show their own location and distance
+("How far am I?", which stays in their browser), get directions, and open the map full screen. OpenStreetMap's
 free tile server is for light use; on a busy site switch to another tile provider in `public/js/`.
 
 ## Project layout
