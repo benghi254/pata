@@ -44,6 +44,41 @@ const SCHEMA = `
 
   CREATE INDEX IF NOT EXISTS listings_category ON listings(category);
   CREATE INDEX IF NOT EXISTS listings_user ON listings(user_id);
+
+  -- A shop's catalogue: the products or services it sells, with prices and stock.
+  -- quantity is NULL for things that aren't counted (services, made to order).
+  CREATE TABLE IF NOT EXISTS items (
+    id            SERIAL PRIMARY KEY,
+    listing_id    INTEGER NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+    name          TEXT NOT NULL,
+    description   TEXT NOT NULL DEFAULT '',
+    sku           TEXT NOT NULL DEFAULT '',
+    price         NUMERIC(12, 2),
+    unit          TEXT NOT NULL DEFAULT '',
+    quantity      INTEGER CHECK (quantity >= 0),
+    low_stock_at  INTEGER CHECK (low_stock_at >= 0),
+    visible       BOOLEAN NOT NULL DEFAULT true,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ
+  );
+  CREATE INDEX IF NOT EXISTS items_listing ON items(listing_id);
+
+  -- Every change to a shop's catalogue, newest last. Kept when an item is deleted
+  -- (item_id becomes NULL; item_name keeps what it was called).
+  CREATE TABLE IF NOT EXISTS item_changes (
+    id          SERIAL PRIMARY KEY,
+    listing_id  INTEGER NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+    item_id     INTEGER REFERENCES items(id) ON DELETE SET NULL,
+    item_name   TEXT NOT NULL,
+    user_id     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    action      TEXT NOT NULL,
+    detail      TEXT NOT NULL DEFAULT '',
+    qty_before  INTEGER,
+    qty_after   INTEGER,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+  CREATE INDEX IF NOT EXISTS item_changes_listing ON item_changes(listing_id, created_at DESC);
+  CREATE INDEX IF NOT EXISTS item_changes_item ON item_changes(item_id);
 `;
 
 // Neon URLs say sslmode=require; pin the strict certificate check pg uses today

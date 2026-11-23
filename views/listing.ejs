@@ -15,6 +15,7 @@
             <p class="what"><%= listing.title %></p>
         </div>
         <% if (isOwner) { %>
+            <a href="/listing/<%= listing.id %>/inventory" class="btn btn-sm">Manage inventory</a>
             <a href="/listing/<%= listing.id %>/edit" class="btn btn-sm">Edit listing</a>
         <% } %>
         <% if (status) { %>
@@ -28,6 +29,33 @@
                 <div class="card pad">
                     <h2 class="h-sm">About</h2>
                     <p class="desc"><%= listing.description %></p>
+                </div>
+            <% } %>
+
+            <% if (items.length) { %>
+                <div class="card pad">
+                    <h2 class="h-sm"><%= listing.kind === 'goods' ? 'Products' : 'Services' %> &amp; prices</h2>
+                    <ul class="catalogue">
+                        <% items.forEach(function (i) { const st = stockState(i); %>
+                            <li class="<%= st.key === 'out' ? 'is-out' : '' %>">
+                                <div class="cat-name">
+                                    <strong><%= i.name %></strong>
+                                    <% if (i.description) { %><span class="muted"><%= i.description %></span><% } %>
+                                </div>
+                                <div class="cat-right">
+                                    <% if (i.price != null) { %><span class="price"><%= kes(i.price) %><% if (i.unit) { %> <span class="muted"><%= i.unit %></span><% } %></span><% } %>
+                                    <% if (st.key !== 'untracked') { %><span class="chip stock-<%= st.key %>"><%= st.label %></span><% } %>
+                                </div>
+                            </li>
+                        <% }) %>
+                    </ul>
+                    <p class="hint">Prices and stock are kept up to date by the seller. Call to confirm.</p>
+                </div>
+            <% } else if (isOwner) { %>
+                <div class="card pad">
+                    <h2 class="h-sm">Products &amp; prices</h2>
+                    <p class="hint">Only you can see this. Add your products, prices and stock so buyers know what you have.</p>
+                    <a href="/listing/<%= listing.id %>/items/new" class="btn btn-sm btn-primary">+ Add items</a>
                 </div>
             <% } %>
 
