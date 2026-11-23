@@ -3,7 +3,6 @@ const express = require('express');
 const cookieSession = require('cookie-session');
 
 const db = require('./db');
-const areas = require('./areas');
 const photos = require('./photos');
 const categories = require('./categories');
 const hours = require('./hours');
@@ -11,6 +10,8 @@ const payments = require('./payments');
 const seo = require('./seo');
 const inventory = require('./inventory');
 const team = require('./team');
+const areas = require('./areas');
+const places = require('./places');
 const { hashPassword, verifyPassword, requireLogin } = require('./auth');
 
 const app = express();
@@ -32,11 +33,16 @@ Object.assign(app.locals, {
   kes: inventory.kes,
   stockState: inventory.stockState,
   photoUrl: photos.url,
-  places: areas.PLACES,
+  places,
 });
 
 // On Vercel, files in public/ are served by the CDN; locally Express serves them.
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Counties, constituencies and wards for the place pickers. The URL carries a version, so it can be cached for long.
+app.get('/places.json', (req, res) => {
+  res.set('Cache-Control', 'public, max-age=31536000, immutable').type('application/json').send(places.RAW);
+});
 app.use(express.urlencoded({ extended: false }));
 
 // Logins live in a signed cookie, so they survive across serverless instances.
@@ -109,7 +115,9 @@ app.get('/area', (req, res) => {
 
 app.post('/area', (req, res) => {
   const nextUrl = safeNext(req.body.next, '/');
-  const place = areas.findPlace(trim(req.body.county), trim(req.body.constituency));
+  const county = places.county(trim(req.body.county));
+  const constituency = county && places.constituency(county, trim(req.body.constituency));
+  const place = constituency ? { county, constituency } : null;
   if (!place) {
     return res.status(400).render('area', {
       title: 'Choose your constituency', noindex: true, next: nextUrl,
@@ -324,9 +332,8 @@ function listingToValues(l) {
     payMethod: l.pay_method || '',
     payNumber: (payments.forListing(l) || {}).display || '',
     payAccount: l.pay_account || '',
-    // Older listings had the area typed by hand; match it to the official names where possible.
-    county: (areas.countyByName(l.county) || { name: l.county }).name,
-    constituency: (areas.findPlace(l.county, l.constituency) || { constituency: l.constituency }).constituency,
+    county: l.county,
+    constituency: l.constituency,
     ward: l.ward,
     street: l.street,
     latitude: l.latitude ?? '',
@@ -352,7 +359,8 @@ function normalizeWebsite(input) {
 }
 
 // Reads and checks the sell / edit form. Returns { values, errors, row }.
-function readListingForm(body, kindKey) {
+// `current` is the listing being edited, if any (its saved place is accepted as it is).
+function readListingForm(body, kindKey, current) {
   const fields = ['category', 'title', 'shopName', 'description', 'phone', 'website', 'county', 'constituency', 'ward', 'street', 'latitude', 'longitude'];
   const values = Object.fromEntries(fields.map((f) => [f, trim(body[f])]));
   const parsedHours = hours.fromForm(body);
@@ -366,10 +374,12 @@ function readListingForm(body, kindKey) {
   const website = normalizeWebsite(values.website);
   if (website === null) errors.push('Enter a valid website address, e.g. www.myshop.co.ke.');
   else values.website = website;
-  // Buyers only see shops in their own constituency, so it must be one from the official list.
-  const place = areas.findPlace(values.county, values.constituency);
-  if (place) Object.assign(values, place);
-  else errors.push(values.county ? 'Choose the constituency your shop is in.' : 'Choose your county and constituency.');
+  // Buyers only see shops in their own constituency, so sellers must give one (official list,
+  // or the value an older listing already had).
+  const place = places.check(values, { keep: current || {} });
+  Object.assign(values, { county: place.county || values.county, constituency: place.constituency, ward: place.ward });
+  errors.push(...place.errors);
+  if (place.county && !place.constituency && !place.errors.length) errors.push('Choose the constituency your shop is in.');
   if (!values.street) errors.push('Enter the street, building or a landmark near your shop.');
 
   let lat = null;
@@ -458,7 +468,7 @@ app.get('/listing/:id/edit', requireLogin, shopAccess('shop'), async (req, res) 
 app.post('/listing/:id/edit', requireLogin, shopAccess('shop'), photos.upload, async (req, res) => {
   const { listing } = res.locals;
   const existing = await photos.list(listing.id);
-  const { values, errors, row } = readListingForm(req.body, listing.kind);
+  const { values, errors, row } = readListingForm(req.body, listing.kind, listing);
   errors.push(...photos.check(req, existing));
   if (errors.length) return renderSellForm(res, listing.kind, values, photosAgain(req, errors), 400, listing, existing);
 

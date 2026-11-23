@@ -1,24 +1,43 @@
-<%# County + constituency dropdowns. Without JavaScript every constituency is listed under its county;
-    /js/place-fields.js narrows the second list to the county picked.
-    Locals: county, constituency (selected values), hint (optional text under the fields). %>
-<div class="cols place-fields" data-place-fields>
+<%#
+  County -> Constituency -> Ward pickers. Each list fills in once the one before it is chosen
+  (public/js/place-picker.js). The server renders the options for the current choice too, so a
+  form that comes back with an error, or an edit of an existing shop, shows them straight away.
+  Locals: place = { county, constituency, ward }, countyRequired, constituencyRequired (bool),
+  noWard (bool: leave the ward list out).
+%><%
+  const conRequired = typeof constituencyRequired !== 'undefined' && constituencyRequired;
+  const showWard = !(typeof noWard !== 'undefined' && noWard);
+  const cons = places.constituenciesOf(place.county);
+  const wards = places.wardsOf(place.county, place.constituency);
+  const selCounty = places.county(place.county);
+  // Older listings typed these freely; keep a value that isn't on the official list selectable.
+  const extraCon = place.constituency && !places.constituency(place.county, place.constituency) ? place.constituency : '';
+  const extraWard = place.ward && !places.ward(place.county, place.constituency, place.ward) ? place.ward : '';
+%><div class="cols <%= showWard ? 'three' : '' %> place-fields" data-places="/places.json?v=<%= places.VERSION %>">
     <div class="field">
         <label for="county">County</label>
-        <select id="county" name="county" required>
+        <select id="county" name="county" data-level="county" <%= countyRequired ? 'required' : '' %>>
             <option value="">Choose county…</option>
-            <% places.forEach(function (p) { %><option <%= p.county === county ? 'selected' : '' %>><%= p.county %></option><% }) %>
+            <% places.COUNTIES.forEach(function (c) { %><option<%= c === selCounty ? ' selected' : '' %>><%= c %></option><% }) %>
         </select>
     </div>
     <div class="field">
-        <label for="constituency">Constituency</label>
-        <select id="constituency" name="constituency" required>
-            <option value="">Choose constituency…</option>
-            <% places.forEach(function (p) { %>
-                <optgroup label="<%= p.county %>">
-                    <% p.constituencies.forEach(function (c) { %><option <%= p.county === county && c === constituency ? 'selected' : '' %>><%= c %></option><% }) %>
-                </optgroup>
-            <% }) %>
+        <label for="constituency">Constituency<% if (!conRequired) { %> <span class="opt">(optional)</span><% } %></label>
+        <select id="constituency" name="constituency" data-level="constituency" <%= cons.length || extraCon ? '' : 'disabled' %> <%= conRequired ? 'required' : '' %>>
+            <option value=""><%= cons.length ? 'Choose constituency…' : 'Choose a county first' %></option>
+            <% if (extraCon) { %><option selected><%= extraCon %></option><% } %>
+            <% cons.forEach(function (c) { %><option<%= c === places.constituency(place.county, place.constituency) ? ' selected' : '' %>><%= c %></option><% }) %>
         </select>
     </div>
+    <% if (showWard) { %>
+    <div class="field">
+        <label for="ward">Ward <span class="opt">(optional)</span></label>
+        <select id="ward" name="ward" data-level="ward" <%= wards.length || extraWard ? '' : 'disabled' %>>
+            <option value=""><%= wards.length ? 'Choose ward…' : 'Choose a constituency first' %></option>
+            <% if (extraWard) { %><option selected><%= extraWard %></option><% } %>
+            <% wards.forEach(function (w) { %><option<%= w === places.ward(place.county, place.constituency, place.ward) ? ' selected' : '' %>><%= w %></option><% }) %>
+        </select>
+    </div>
+    <% } %>
 </div>
-<script src="/js/place-fields.js" defer></script>
+<script src="/js/place-picker.js" defer></script>

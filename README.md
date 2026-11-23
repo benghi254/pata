@@ -44,15 +44,18 @@ in `data/pgdata`, so local work never touches live data. Delete that folder to s
   shops; passwords are stored scrypt-hashed.
 - **Your constituency only**: buyers pick their county and constituency once (`/area`, kept in their
   session cookie, changeable from the header). Home page counts, category pages and search only show
-  shops in that constituency. Sellers must choose their constituency from the official list of 290
-  (`areas.js`), so the two always match. Shop pages opened from a shared link still open for anyone.
+  shops in that constituency. Sellers must choose their constituency (ward stays optional) from the
+  same official lists (`places.js`), so the two always match. Shop pages opened from a shared link still open for anyone.
 - **Photos**: sellers can add up to 4 photos of their shop and up to 4 for each product or service in
   their catalogue (JPG, PNG or WebP). The browser shrinks them to 1600 px before uploading. They are
   stored in Postgres (`photos` table, served from `/photos/<id>`), so nothing extra is needed on Vercel.
   The first shop photo appears on listing cards and in link previews.
 - **Sell**: logged-in users list a product (`/sell/goods`) or a service (`/sell/services`). Sellers give
   their street, building or landmark, drop a pin on a map (or use their phone's location), and set
-  opening and closing times for each day of the week.
+  opening and closing times for each day of the week. They pick their county, then constituency, then
+  ward from Kenya's official lists (47 counties, 290 constituencies, 1,450 wards): each list fills in
+  once the one before it is chosen, and the server checks the ward really is in that constituency and
+  county. Buyers choose their constituency with the same pickers.
 - **My shops** (`/my/listings`): sellers see all their listings and can edit any of them (details,
   location pin, opening hours) or delete them. Only the owner can edit or delete a listing.
 - **Inventory** (`/listing/<id>/inventory`): each shop owner manages their own catalogue. They can add,
@@ -101,6 +104,7 @@ auth.js        password hashing and the login guard
 hours.js       opening hours: form parsing, "open now", schema.org output
 inventory.js   shop catalogues: items, stock movements and the change history
 team.js        shop teams: invites, employee permissions and the access check on shop routes
+places.js      counties, constituencies and wards (places.json) for the place pickers
 seo.js         shop URLs, page descriptions and structured data
 categories.js  the list of categories and their groups - add a new one here
 views/         EJS page templates (partials/ holds the shared header and footer)

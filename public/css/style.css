@@ -787,6 +787,17 @@ details.member .perm-form { margin: 14px 0 10px; }
   .team-grid { grid-template-columns: 1fr; }
 }
 
+
+/* ----- Mobile money ----- */
+.field[hidden] { display: none; }
+.pay-details { margin: 0 0 14px; display: flex; flex-direction: column; gap: 12px; }
+.pay-details dt { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+.pay-details dd { margin: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pay-number { font-size: 22px; font-weight: 800; letter-spacing: 0.06em; color: var(--text); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.pay-steps { margin: 0 0 14px; padding-left: 20px; font-size: 14px; color: var(--text); display: flex; flex-direction: column; gap: 4px; }
+.pay-warn { margin: 0; font-size: 13px; padding: 10px 12px; border-radius: 12px; color: var(--warn-text); background: var(--warn-bg); border: 1px solid var(--warn-border); }
+
+
 /* ---------- Search and the buyer's constituency ---------- */
 
 .head-search { position: relative; flex: 1; max-width: 320px; margin: 0 auto 0 8px; }
@@ -820,8 +831,11 @@ details.member .perm-form { margin: 14px 0 10px; }
 .place-fields .field { margin-bottom: 0; }
 select:disabled { opacity: 0.6; cursor: not-allowed; }
 
+.cols.three { grid-template-columns: repeat(3, 1fr); }
+
 @media (max-width: 720px) {
   .head-search { order: 3; flex-basis: 100%; max-width: none; margin: 4px 0 0; }
+  .cols.three { grid-template-columns: 1fr; }
 }
 
 /* ---------- Photos ---------- */
