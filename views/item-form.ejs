@@ -1,0 +1,74 @@
+<%- include('partials/header') %>
+<div class="wrap panel-page">
+    <div class="panel wide">
+        <a href="/listing/<%= listing.id %>/inventory" class="back">← Inventory</a>
+        <span class="eyebrow"><%= listing.shop_name %></span>
+        <h1><%= editing ? 'Edit ' + editing.name : 'Add an item' %></h1>
+        <p class="sub"><%= editing ? 'Change the details. To change how many you have, use the stock controls on your inventory page, so every movement is recorded.' : 'A product or service you sell. Buyers see the name, price and whether it is in stock.' %></p>
+        <%- include('partials/errors', { errors: errors }) %>
+        <form action="<%= action %>" method="post" id="item-form">
+            <fieldset>
+                <legend>Details</legend>
+                <div class="cols">
+                    <div class="field span">
+                        <label for="name">Name</label>
+                        <input id="name" type="text" name="name" value="<%= values.name || '' %>" maxlength="120" placeholder="<%= listing.kind === 'goods' ? 'e.g. Sukuma wiki' : 'e.g. Fade and line-up' %>" required>
+                    </div>
+                    <div class="field">
+                        <label for="price">Price in KSh <span class="opt">(optional)</span></label>
+                        <input id="price" type="text" inputmode="decimal" name="price" value="<%= values.price || '' %>" placeholder="e.g. 150">
+                    </div>
+                    <div class="field">
+                        <label for="unit">Per <span class="opt">(optional)</span></label>
+                        <input id="unit" type="text" name="unit" value="<%= values.unit || '' %>" maxlength="40" placeholder="e.g. per kg, per bunch, per hour">
+                    </div>
+                    <div class="field">
+                        <label for="sku">Code / SKU <span class="opt">(optional)</span></label>
+                        <input id="sku" type="text" name="sku" value="<%= values.sku || '' %>" maxlength="60" placeholder="Your own code for it">
+                    </div>
+                    <div class="field span">
+                        <label for="description">Description <span class="opt">(optional)</span></label>
+                        <textarea id="description" name="description" rows="2" maxlength="1000"><%= values.description || '' %></textarea>
+                    </div>
+                </div>
+            </fieldset>
+            <fieldset>
+                <legend>Stock</legend>
+                <label class="check"><input type="checkbox" name="tracked" id="tracked" <%= values.tracked ? 'checked' : '' %>> Count how many I have <span class="opt">(leave off for services or made-to-order)</span></label>
+                <div class="cols" id="stock-fields">
+                    <% if (!editing) { %>
+                        <div class="field">
+                            <label for="quantity">Opening stock</label>
+                            <input id="quantity" type="number" min="0" step="1" inputmode="numeric" name="quantity" value="<%= values.quantity ?? '' %>" placeholder="0">
+                        </div>
+                    <% } else if (editing.quantity != null) { %>
+                        <div class="field">
+                            <label>In stock now</label>
+                            <p class="qty-now"><%= editing.quantity %></p>
+                        </div>
+                    <% } %>
+                    <div class="field">
+                        <label for="lowStockAt">Warn me when stock is at or below <span class="opt">(optional)</span></label>
+                        <input id="lowStockAt" type="number" min="0" step="1" inputmode="numeric" name="lowStockAt" value="<%= values.lowStockAt ?? '' %>" placeholder="e.g. 5">
+                    </div>
+                </div>
+            </fieldset>
+            <fieldset>
+                <legend>Buyers</legend>
+                <label class="check"><input type="checkbox" name="visible" <%= values.visible ? 'checked' : '' %>> Show on my shop page</label>
+            </fieldset>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary"><%= editing ? 'Save changes' : 'Add item' %></button>
+                <% if (!editing) { %><button type="submit" name="another" value="1" class="btn">Add and add another</button><% } %>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+  (function () {
+    var box = document.getElementById('tracked'), fields = document.getElementById('stock-fields');
+    function sync() { fields.hidden = !box.checked; }
+    box.addEventListener('change', sync); sync();
+  })();
+</script>
+<%- include('partials/footer') %>

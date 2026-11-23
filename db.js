@@ -44,6 +44,77 @@ const SCHEMA = `
 
   CREATE INDEX IF NOT EXISTS listings_category ON listings(category);
   CREATE INDEX IF NOT EXISTS listings_user ON listings(user_id);
+
+  -- A shop's catalogue: the products or services it sells, with prices and stock.
+  -- quantity is NULL for things that aren't counted (services, made to order).
+  CREATE TABLE IF NOT EXISTS items (
+    id            SERIAL PRIMARY KEY,
+    listing_id    INTEGER NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+    name          TEXT NOT NULL,
+    description   TEXT NOT NULL DEFAULT '',
+    sku           TEXT NOT NULL DEFAULT '',
+    price         NUMERIC(12, 2),
+    unit          TEXT NOT NULL DEFAULT '',
+    quantity      INTEGER CHECK (quantity >= 0),
+    low_stock_at  INTEGER CHECK (low_stock_at >= 0),
+    visible       BOOLEAN NOT NULL DEFAULT true,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ
+  );
+  CREATE INDEX IF NOT EXISTS items_listing ON items(listing_id);
+
+  -- Every change to a shop's catalogue, newest last. Kept when an item is deleted
+  -- (item_id becomes NULL; item_name keeps what it was called).
+  CREATE TABLE IF NOT EXISTS item_changes (
+    id          SERIAL PRIMARY KEY,
+    listing_id  INTEGER NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+    item_id     INTEGER REFERENCES items(id) ON DELETE SET NULL,
+    item_name   TEXT NOT NULL,
+    user_id     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    action      TEXT NOT NULL,
+    detail      TEXT NOT NULL DEFAULT '',
+    qty_before  INTEGER,
+    qty_after   INTEGER,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+  CREATE INDEX IF NOT EXISTS item_changes_listing ON item_changes(listing_id, created_at DESC);
+  CREATE INDEX IF NOT EXISTS item_changes_item ON item_changes(item_id);
+
+  -- People who help run a shop besides its owner (listings.user_id), and what each may do.
+  -- Everyone listed here can see the shop's inventory; the can_* columns allow more.
+  CREATE TABLE IF NOT EXISTS listing_members (
+    listing_id   INTEGER NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+    user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    can_stock    BOOLEAN NOT NULL DEFAULT true,
+    can_items    BOOLEAN NOT NULL DEFAULT false,
+    can_delete   BOOLEAN NOT NULL DEFAULT false,
+    can_reports  BOOLEAN NOT NULL DEFAULT false,
+    can_shop     BOOLEAN NOT NULL DEFAULT false,
+    added_by     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at   TIMESTAMPTZ,
+    PRIMARY KEY (listing_id, user_id)
+  );
+  CREATE INDEX IF NOT EXISTS listing_members_user ON listing_members(user_id);
+
+  -- One-time invite links an owner shares with an employee. Only a hash of the token is kept.
+  CREATE TABLE IF NOT EXISTS listing_invites (
+    id           SERIAL PRIMARY KEY,
+    listing_id   INTEGER NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+    token_hash   TEXT NOT NULL UNIQUE,
+    label        TEXT NOT NULL DEFAULT '',
+    can_stock    BOOLEAN NOT NULL DEFAULT true,
+    can_items    BOOLEAN NOT NULL DEFAULT false,
+    can_delete   BOOLEAN NOT NULL DEFAULT false,
+    can_reports  BOOLEAN NOT NULL DEFAULT false,
+    can_shop     BOOLEAN NOT NULL DEFAULT false,
+    created_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at   TIMESTAMPTZ NOT NULL,
+    used_by      INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    used_at      TIMESTAMPTZ
+  );
+  CREATE INDEX IF NOT EXISTS listing_invites_listing ON listing_invites(listing_id);
 `;
 
 // Neon URLs say sslmode=require; pin the strict certificate check pg uses today

@@ -1,0 +1,122 @@
+<%- include('partials/header') %>
+<% const base = '/listing/' + listing.id;
+   const permBoxes = function (prefix, perms) { return PERMS.map(function ([k, label, hint]) {
+     return '<label class="perm"><input type="checkbox" name="perm_' + k + '"' + (perms[k] ? ' checked' : '') + ' data-perm="' + k + '"> <span><strong>' + label + '</strong><small>' + hint + '</small></span></label>';
+   }).join(''); }; %>
+<div class="wrap">
+    <section class="section-head page-head">
+        <div>
+            <a href="<%= base %>/inventory" class="back">← Inventory</a><br>
+            <span class="eyebrow">Team</span>
+            <h1><%= listing.shop_name %></h1>
+            <p>Give the people who work with you their own login. Choose what each one can do; you can change it or remove them any time. Only you can manage the team or delete the shop.</p>
+        </div>
+    </section>
+
+    <% if (flash) { %><p class="notice <%= flash.type === 'bad' ? 'bad' : '' %>" role="status"><%= flash.text %></p><% } %>
+
+    <% if (newInvite) { %>
+        <div class="card pad invite-new" role="status">
+            <h2 class="h-sm">Invite link ready<%= newInvite.label ? ' for ' + newInvite.label : '' %></h2>
+            <p>Send this link to your employee. It works <strong>once</strong>, for <%= inviteDays %> days. They open it, create their own account (or log in) and join your shop. Copy it now: for safety it won't be shown again.</p>
+            <div class="copy-row">
+                <input type="text" readonly value="<%= newInvite.url %>" id="invite-url" aria-label="Invite link">
+                <button type="button" class="btn btn-sm btn-primary" id="copy-invite">Copy</button>
+                <a class="btn btn-sm" target="_blank" rel="noopener" href="https://wa.me/?text=<%= encodeURIComponent('Join ' + listing.shop_name + ' on PATA: ' + newInvite.url) %>">Send on WhatsApp</a>
+            </div>
+        </div>
+    <% } %>
+
+    <div class="team-grid">
+        <div class="team-main">
+            <div class="card pad">
+                <h2 class="h-sm">People</h2>
+                <div class="member owner">
+                    <div class="avatar"><%= user.firstName.charAt(0).toUpperCase() %></div>
+                    <div class="info"><strong><%= user.firstName %> (you)</strong><div class="muted">Owner · can do everything</div></div>
+                </div>
+                <% if (!members.length) { %><p class="hint">No one else yet. Use "Invite someone" to add the people who work with you.</p><% } %>
+                <% members.forEach(function (m) { %>
+                    <details class="member">
+                        <summary>
+                            <div class="avatar"><%= m.first_name.charAt(0).toUpperCase() %></div>
+                            <div class="info">
+                                <strong><%= [m.first_name, m.other_name].filter(Boolean).join(' ') %></strong>
+                                <div class="muted"><%= m.email %></div>
+                                <div class="perm-sum"><%= permSummary(m.perms) %></div>
+                            </div>
+                            <span class="btn btn-sm">Change</span>
+                        </summary>
+                        <form method="post" action="<%= base %>/team/<%= m.user_id %>" class="perm-form">
+                            <%- permBoxes('m' + m.user_id, m.perms) %>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-sm btn-primary">Save permissions</button>
+                            </div>
+                        </form>
+                        <form method="post" action="<%= base %>/team/<%= m.user_id %>/remove" class="confirm-remove" data-name="<%= m.first_name %>">
+                            <button type="submit" class="btn btn-sm btn-danger">Remove from team</button>
+                        </form>
+                    </details>
+                <% }) %>
+            </div>
+
+            <% if (invites.length) { %>
+                <div class="card pad">
+                    <h2 class="h-sm">Invites not used yet</h2>
+                    <% invites.forEach(function (i) { %>
+                        <div class="member">
+                            <div class="info">
+                                <strong><%= i.label || 'Invite' %></strong>
+                                <div class="perm-sum"><%= permSummary(i.perms) %></div>
+                                <div class="muted">Expires <%= new Date(i.expires_at).toLocaleDateString('en-KE', { timeZone: 'Africa/Nairobi', dateStyle: 'medium' }) %></div>
+                            </div>
+                            <form method="post" action="<%= base %>/team/invites/<%= i.id %>/revoke" class="inline">
+                                <button type="submit" class="btn btn-sm">Cancel link</button>
+                            </form>
+                        </div>
+                    <% }) %>
+                </div>
+            <% } %>
+        </div>
+
+        <div class="card pad">
+            <h2 class="h-sm">Invite someone</h2>
+            <form method="post" action="<%= base %>/team/invites" id="invite-form">
+                <div class="field">
+                    <label for="label">Who is it for? <span class="opt">(only you see this)</span></label>
+                    <input id="label" type="text" name="label" maxlength="60" placeholder="e.g. Kamau, weekend shift">
+                </div>
+                <div class="presets" role="group" aria-label="Quick choices">
+                    <% Object.entries(PRESETS).forEach(function ([key, p]) { %>
+                        <button type="button" class="pill" data-perms="<%= p.perms.join(',') %>"><%= p.label %></button>
+                    <% }) %>
+                </div>
+                <p class="hint">Everyone on your team can see the inventory. Tick what else this person may do:</p>
+                <%- permBoxes('new', { stock: true }) %>
+                <button type="submit" class="btn btn-primary btn-block">Create invite link</button>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+  (function () {
+    var copy = document.getElementById('copy-invite');
+    if (copy) copy.addEventListener('click', function () {
+      var input = document.getElementById('invite-url'); input.select();
+      (navigator.clipboard ? navigator.clipboard.writeText(input.value) : Promise.reject()).then(
+        function () { copy.textContent = 'Copied'; }, function () { document.execCommand('copy'); copy.textContent = 'Copied'; });
+    });
+    document.querySelectorAll('.presets [data-perms]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var on = b.dataset.perms.split(',');
+        document.querySelectorAll('#invite-form [data-perm]').forEach(function (c) { c.checked = on.indexOf(c.dataset.perm) !== -1; });
+      });
+    });
+    document.querySelectorAll('form.confirm-remove').forEach(function (f) {
+      f.addEventListener('submit', function (e) {
+        if (!window.confirm('Remove ' + f.dataset.name + ' from your team? They will lose access straight away.')) e.preventDefault();
+      });
+    });
+  })();
+</script>
+<%- include('partials/footer') %>

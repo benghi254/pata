@@ -6,6 +6,8 @@ const db = require('./db');
 const categories = require('./categories');
 const hours = require('./hours');
 const seo = require('./seo');
+const inventory = require('./inventory');
+const team = require('./team');
 const { hashPassword, verifyPassword, requireLogin } = require('./auth');
 
 const app = express();
@@ -24,6 +26,8 @@ Object.assign(app.locals, {
   place: seo.place,
   jsonLdScript: seo.jsonLdScript,
   hoursStatus: (l) => hours.status(hours.parse(l.hours)),
+  kes: inventory.kes,
+  stockState: inventory.stockState,
 });
 
 // On Vercel, files in public/ are served by the CDN; locally Express serves them.
@@ -47,8 +51,13 @@ app.use((req, res, next) => {
   res.locals.user = req.session.user || null;
   res.locals.siteUrl = SITE_URL || `${req.protocol}://${req.get('host')}`;
   res.locals.path = req.path;
+  // One-time messages after a redirect, e.g. "Stock updated."
+  res.locals.flash = req.session.flash || null;
+  if (req.session.flash) delete req.session.flash;
   next();
 });
+
+const flash = (req, type, text) => { req.session.flash = { type, text }; };
 
 // Make sure the tables exist before the first query (once per cold start).
 app.use(async (req, res, next) => {
@@ -307,35 +316,40 @@ app.post('/sell/:kind', requireLogin, async (req, res, next) => {
 
 // ---------- Managing your own listings ----------
 
-// Loads the listing in the URL if it belongs to the logged-in user; otherwise 404.
-async function ownListing(req, res, next) {
-  const listing = await db.one('SELECT * FROM listings WHERE id = ? AND user_id = ?',
-    [Number(req.params.id) || 0, req.session.user.id]);
-  if (!listing) {
-    return res.status(404).render('message', { title: 'Not found', noindex: true, message: "Sorry, we couldn't find that page." });
-  }
-  res.locals.listing = listing;
-  next();
-}
+const { shopAccess } = team;
 
 app.get('/my/listings', requireLogin, async (req, res) => {
-  const listings = await db.query('SELECT * FROM listings WHERE user_id = ? ORDER BY created_at DESC, id DESC',
-    [req.session.user.id]);
+  const listings = await db.query(`
+    SELECT l.*,
+      (SELECT COUNT(*)::int FROM items i WHERE i.listing_id = l.id) AS item_count,
+      (SELECT COUNT(*)::int FROM items i WHERE i.listing_id = l.id AND i.quantity IS NOT NULL
+         AND (i.quantity = 0 OR i.quantity <= i.low_stock_at)) AS low_count
+    FROM listings l WHERE l.user_id = ? ORDER BY l.created_at DESC, l.id DESC
+  `, [req.session.user.id]);
+  // Shops where this user is on the team (an employee), with what they're allowed to do.
+  const work = await db.query(`
+    SELECT l.*, m.can_stock, m.can_items, m.can_delete, m.can_reports, m.can_shop, u.first_name AS owner_name,
+      (SELECT COUNT(*)::int FROM items i WHERE i.listing_id = l.id) AS item_count
+    FROM listing_members m JOIN listings l ON l.id = m.listing_id JOIN users u ON u.id = l.user_id
+    WHERE m.user_id = ? ORDER BY l.shop_name
+  `, [req.session.user.id]);
   res.render('my-listings', {
     title: 'My shops',
     noindex: true,
     listings,
+    work: work.map((l) => ({ ...l, perms: team.permsFromRow(l) })),
+    permSummary: team.permSummary,
     categoryName: (slug) => (categoryBySlug(slug) || {}).name || slug,
-    notice: { updated: 'Listing updated.', deleted: 'Listing deleted.' }[req.query.done] || null,
+    notice: { updated: 'Listing updated.', deleted: 'Listing deleted.', left: 'You have left that shop.' }[req.query.done] || null,
   });
 });
 
-app.get('/listing/:id/edit', requireLogin, ownListing, (req, res) => {
+app.get('/listing/:id/edit', requireLogin, shopAccess('shop'), (req, res) => {
   const { listing } = res.locals;
   renderSellForm(res, listing.kind, listingToValues(listing), [], 200, listing);
 });
 
-app.post('/listing/:id/edit', requireLogin, ownListing, async (req, res) => {
+app.post('/listing/:id/edit', requireLogin, shopAccess('shop'), async (req, res) => {
   const { listing } = res.locals;
   const { values, errors, row } = readListingForm(req.body, listing.kind);
   if (errors.length) return renderSellForm(res, listing.kind, values, errors, 400, listing);
@@ -344,14 +358,259 @@ app.post('/listing/:id/edit', requireLogin, ownListing, async (req, res) => {
     UPDATE listings SET category = ?, title = ?, shop_name = ?, description = ?, phone = ?,
       county = ?, constituency = ?, ward = ?, street = ?, latitude = ?, longitude = ?, hours = ?,
       website = ?, updated_at = now()
-    WHERE id = ? AND user_id = ?
-  `, [...row, listing.id, req.session.user.id]);
+    WHERE id = ?
+  `, [...row, listing.id]);
   res.redirect('/my/listings?done=updated');
 });
 
-app.post('/listing/:id/delete', requireLogin, ownListing, async (req, res) => {
+app.post('/listing/:id/delete', requireLogin, shopAccess('owner'), async (req, res) => {
   await db.query('DELETE FROM listings WHERE id = ? AND user_id = ?', [res.locals.listing.id, req.session.user.id]);
   res.redirect('/my/listings?done=deleted');
+});
+
+// ---------- Inventory: each shop's catalogue, stock and change history (owner and team) ----------
+
+const inventoryPath = (listing) => `/listing/${listing.id}/inventory`;
+const notFound = (res) => res.status(404).render('message', { title: 'Not found', noindex: true, message: "Sorry, we couldn't find that page." });
+
+// Loads the item in the URL if it belongs to the shop already loaded by shopAccess.
+async function ownItem(req, res, next) {
+  const item = await db.one('SELECT * FROM items WHERE id = ? AND listing_id = ?',
+    [Number(req.params.itemId) || 0, res.locals.listing.id]);
+  if (!item) return notFound(res);
+  res.locals.item = item;
+  next();
+}
+
+const FILTERS = {
+  all: { label: 'All', sql: '' },
+  low: { label: 'Low stock', sql: 'AND quantity IS NOT NULL AND quantity > 0 AND quantity <= low_stock_at' },
+  out: { label: 'Out of stock', sql: 'AND quantity = 0' },
+  hidden: { label: 'Hidden', sql: 'AND NOT visible' },
+};
+
+app.get('/listing/:id/inventory', requireLogin, shopAccess('view'), async (req, res) => {
+  const { listing } = res.locals;
+  const filter = FILTERS[req.query.show] ? req.query.show : 'all';
+  const q = trim(req.query.q).slice(0, 80);
+  const all = await db.query('SELECT * FROM items WHERE listing_id = ? ORDER BY lower(name), id', [listing.id]);
+  const items = await db.query(`
+    SELECT * FROM items WHERE listing_id = ? ${FILTERS[filter].sql}
+      AND (? = '' OR name ILIKE ? OR sku ILIKE ?)
+    ORDER BY lower(name), id
+  `, [listing.id, q, `%${q}%`, `%${q}%`]);
+  const recent = await db.query('SELECT * FROM item_changes WHERE listing_id = ? ORDER BY created_at DESC, id DESC LIMIT 8', [listing.id]);
+  res.render('inventory', {
+    title: `Inventory · ${listing.shop_name}`,
+    noindex: true,
+    items,
+    summary: inventory.summarize(all),
+    recent,
+    filters: FILTERS,
+    filter,
+    q,
+    moves: inventory.MOVES,
+    actions: inventory.ACTIONS,
+    permSummary: team.permSummary,
+  });
+});
+
+function renderItemForm(res, values, errors = [], status = 200) {
+  const { listing, item } = res.locals;
+  res.status(status).render('item-form', {
+    title: item ? `Edit ${item.name}` : `Add an item · ${listing.shop_name}`,
+    noindex: true,
+    action: item ? `/listing/${listing.id}/items/${item.id}/edit` : `/listing/${listing.id}/items`,
+    editing: item || null,
+    values,
+    errors,
+  });
+}
+
+app.get('/listing/:id/items/new', requireLogin, shopAccess('items'), (req, res) => {
+  renderItemForm(res, { tracked: res.locals.listing.kind === 'goods', visible: true });
+});
+
+app.post('/listing/:id/items', requireLogin, shopAccess('items'), async (req, res) => {
+  const { listing } = res.locals;
+  const { values, errors, item } = inventory.readItemForm(req.body, { adding: true });
+  if (errors.length) return renderItemForm(res, values, errors, 400);
+  await inventory.addItem(listing.id, req.session.user.id, item);
+  flash(req, 'ok', `Added ${item.name}.`);
+  res.redirect(req.body.another ? `/listing/${listing.id}/items/new` : inventoryPath(listing));
+});
+
+app.get('/listing/:id/items/:itemId/edit', requireLogin, shopAccess('items'), ownItem, (req, res) => {
+  renderItemForm(res, inventory.itemToValues(res.locals.item));
+});
+
+app.post('/listing/:id/items/:itemId/edit', requireLogin, shopAccess('items'), ownItem, async (req, res) => {
+  const { listing, item: old } = res.locals;
+  const { values, errors, item } = inventory.readItemForm(req.body, { adding: false });
+  if (errors.length) return renderItemForm(res, values, errors, 400);
+  await inventory.editItem(listing.id, req.session.user.id, old, item);
+  flash(req, 'ok', `Saved ${item.name}.`);
+  res.redirect(inventoryPath(listing));
+});
+
+app.post('/listing/:id/items/:itemId/stock', requireLogin, shopAccess('stock'), ownItem, async (req, res) => {
+  const { listing, item } = res.locals;
+  const result = await inventory.moveStock(listing.id, req.session.user.id, item.id, req.body.move, req.body.amount, req.body.note);
+  if (result.error) flash(req, 'bad', `${item.name}: ${result.error}`);
+  else flash(req, 'ok', `${item.name}: stock ${result.qty_before} → ${result.qty_after}.`);
+  res.redirect(safeNext(req.body.next, inventoryPath(listing)));
+});
+
+app.post('/listing/:id/items/:itemId/visibility', requireLogin, shopAccess('items'), ownItem, async (req, res) => {
+  const { listing, item } = res.locals;
+  const visible = req.body.visible === '1';
+  await inventory.setVisible(listing.id, req.session.user.id, item, visible);
+  flash(req, 'ok', visible ? `${item.name} is now shown to buyers.` : `${item.name} is now hidden from buyers.`);
+  res.redirect(safeNext(req.body.next, inventoryPath(listing)));
+});
+
+app.post('/listing/:id/items/:itemId/delete', requireLogin, shopAccess('delete'), ownItem, async (req, res) => {
+  const { listing, item } = res.locals;
+  await inventory.deleteItem(listing.id, req.session.user.id, item);
+  flash(req, 'ok', `Deleted ${item.name}. It stays in your history.`);
+  res.redirect(inventoryPath(listing));
+});
+
+const HISTORY_PAGE = 50;
+
+async function historyRows(listingId, itemId, limit, offset) {
+  return db.query(`
+    SELECT c.*, u.first_name FROM item_changes c LEFT JOIN users u ON u.id = c.user_id
+    WHERE c.listing_id = ? AND (?::int IS NULL OR c.item_id = ?::int)
+    ORDER BY c.created_at DESC, c.id DESC LIMIT ? OFFSET ?
+  `, [listingId, itemId, itemId, limit, offset]);
+}
+
+app.get('/listing/:id/inventory/history', requireLogin, shopAccess('reports'), async (req, res) => {
+  const { listing } = res.locals;
+  const itemId = Number(req.query.item) || null;
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const rows = await historyRows(listing.id, itemId, HISTORY_PAGE + 1, (page - 1) * HISTORY_PAGE);
+  const item = itemId ? await db.one('SELECT * FROM items WHERE id = ? AND listing_id = ?', [itemId, listing.id]) : null;
+  res.render('inventory-history', {
+    title: `History · ${listing.shop_name}`,
+    noindex: true,
+    rows: rows.slice(0, HISTORY_PAGE),
+    hasMore: rows.length > HISTORY_PAGE,
+    page,
+    itemId,
+    item,
+    actions: inventory.ACTIONS,
+  });
+});
+
+const csvName = (listing, what) => `${listing.shop_name.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'shop'}-${what}.csv`;
+
+app.get('/listing/:id/inventory.csv', requireLogin, shopAccess('reports'), async (req, res) => {
+  const { listing } = res.locals;
+  const items = await db.query('SELECT * FROM items WHERE listing_id = ? ORDER BY lower(name), id', [listing.id]);
+  res.attachment(csvName(listing, 'inventory')).type('text/csv').send(inventory.toCsv(
+    ['Name', 'SKU', 'Price (KSh)', 'Unit', 'In stock', 'Low-stock alert', 'Stock value (KSh)', 'Shown to buyers', 'Description', 'Last changed'],
+    items.map((i) => [i.name, i.sku, i.price == null ? '' : Number(i.price), i.unit, i.quantity ?? 'not counted',
+      i.low_stock_at ?? '', i.price != null && i.quantity != null ? Number(i.price) * i.quantity : '',
+      i.visible ? 'yes' : 'no', i.description, new Date(i.updated_at || i.created_at).toISOString()]),
+  ));
+});
+
+app.get('/listing/:id/inventory/history.csv', requireLogin, shopAccess('reports'), async (req, res) => {
+  const { listing } = res.locals;
+  const rows = await historyRows(listing.id, null, 100000, 0);
+  res.attachment(csvName(listing, 'history')).type('text/csv').send(inventory.toCsv(
+    ['When', 'Item', 'What', 'Details', 'Stock before', 'Stock after', 'By'],
+    rows.map((c) => [new Date(c.created_at).toISOString(), c.item_name, inventory.ACTIONS[c.action] || c.action,
+      c.detail, c.qty_before ?? '', c.qty_after ?? '', c.first_name || '']),
+  ));
+});
+
+// ---------- Team: the owner invites employees, each with their own login and permissions ----------
+
+const teamPath = (listing) => `/listing/${listing.id}/team`;
+
+app.get('/listing/:id/team', requireLogin, shopAccess('owner'), async (req, res) => {
+  const { listing } = res.locals;
+  const fresh = req.session.newInvite;
+  if (fresh) delete req.session.newInvite;
+  res.render('team', {
+    newInvite: fresh && fresh.listingId === listing.id ? fresh : null,
+    title: `Team · ${listing.shop_name}`,
+    noindex: true,
+    members: (await team.members(listing.id)).map((m) => ({ ...m, perms: team.permsFromRow(m) })),
+    invites: (await team.pendingInvites(listing.id)).map((i) => ({ ...i, perms: team.permsFromRow(i) })),
+    PERMS: team.PERMS,
+    PRESETS: team.PRESETS,
+    inviteDays: team.INVITE_DAYS,
+    permSummary: team.permSummary,
+  });
+});
+
+app.post('/listing/:id/team/invites', requireLogin, shopAccess('owner'), async (req, res) => {
+  const { listing } = res.locals;
+  const label = trim(req.body.label).slice(0, 60);
+  const token = await team.createInvite(listing.id, req.session.user.id, label, team.permsFromForm(req.body));
+  // The link is shown once (it isn't stored), so it travels to the next page in the signed session.
+  req.session.newInvite = { listingId: listing.id, url: `${res.locals.siteUrl}/invite/${token}`, label };
+  res.redirect(teamPath(listing));
+});
+
+app.post('/listing/:id/team/invites/:inviteId/revoke', requireLogin, shopAccess('owner'), async (req, res) => {
+  const { listing } = res.locals;
+  const done = await team.revokeInvite(listing.id, Number(req.params.inviteId) || 0);
+  flash(req, done ? 'ok' : 'bad', done ? 'Invite link cancelled. It no longer works.' : 'That invite was already used or cancelled.');
+  res.redirect(teamPath(listing));
+});
+
+app.post('/listing/:id/team/:userId', requireLogin, shopAccess('owner'), async (req, res) => {
+  const { listing } = res.locals;
+  const done = await team.updateMember(listing.id, Number(req.params.userId) || 0, team.permsFromForm(req.body));
+  flash(req, done ? 'ok' : 'bad', done ? 'Permissions saved.' : 'That person is no longer on your team.');
+  res.redirect(teamPath(listing));
+});
+
+app.post('/listing/:id/team/:userId/remove', requireLogin, shopAccess('owner'), async (req, res) => {
+  const { listing } = res.locals;
+  await team.removeMember(listing.id, Number(req.params.userId) || 0);
+  flash(req, 'ok', 'Removed from your team. They can no longer see or change this shop.');
+  res.redirect(teamPath(listing));
+});
+
+// An employee leaving a shop they work at.
+app.post('/listing/:id/leave', requireLogin, shopAccess('view'), async (req, res) => {
+  const { listing, can } = res.locals;
+  if (can.role === 'owner') return res.redirect('/my/listings');
+  await team.removeMember(listing.id, req.session.user.id);
+  res.redirect('/my/listings?done=left');
+});
+
+// The link an owner sends. Anyone can open it; joining needs a login.
+app.get('/invite/:token', async (req, res) => {
+  const invite = await team.findInvite(req.params.token);
+  const user = req.session.user;
+  res.status(invite ? 200 : 404).render('invite', {
+    title: invite ? `Join ${invite.shop_name}` : 'Invite not valid',
+    noindex: true,
+    invite,
+    token: req.params.token,
+    isOwner: Boolean(invite && user && invite.owner_id === user.id),
+    permSummary: team.permSummary,
+    perms: invite ? team.permsFromRow(invite) : null,
+  });
+});
+
+app.post('/invite/:token', requireLogin, async (req, res) => {
+  const joined = await team.acceptInvite(req.params.token, req.session.user.id);
+  if (!joined) {
+    return res.status(410).render('message', {
+      title: 'Invite not valid', noindex: true,
+      message: 'This invite link has already been used, has expired or was cancelled. Ask the shop owner for a new one.',
+    });
+  }
+  flash(req, 'ok', 'Welcome to the team! You can now help manage this shop.');
+  res.redirect(`/listing/${joined.listing_id}/inventory`);
 });
 
 // Public shop page. Registered after /listing/:id/edit so "edit" is never read as a slug.
@@ -365,6 +624,7 @@ app.get('/listing/:id{/:slug}', async (req, res, next) => {
   const category = categoryBySlug(listing.category);
   const { siteUrl } = res.locals;
   const h = hours.parse(listing.hours);
+  const items = await db.query('SELECT * FROM items WHERE listing_id = ? AND visible ORDER BY lower(name), id', [listing.id]);
   res.render('listing', {
     title: `${listing.shop_name} – ${listing.title} in ${listing.ward || listing.constituency || listing.county}`,
     description: seo.listingDescription(listing, category),
@@ -380,7 +640,8 @@ app.get('/listing/:id{/:slug}', async (req, res, next) => {
     category,
     status: hours.status(h),
     week: h ? hours.table(h) : null,
-    isOwner: Boolean(req.session.user && req.session.user.id === listing.user_id),
+    items,
+    can: await team.access(listing, req.session.user && req.session.user.id),
   });
 });
 
@@ -393,6 +654,7 @@ app.get('/robots.txt', (req, res) => {
     'Disallow: /login',
     'Disallow: /signup',
     'Disallow: /sell/',
+    'Disallow: /invite/',
     '',
     `Sitemap: ${res.locals.siteUrl}/sitemap.xml`,
     '',

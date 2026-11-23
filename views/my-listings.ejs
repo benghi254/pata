@@ -4,20 +4,20 @@
         <div>
             <span class="eyebrow">Your account</span>
             <h1>My shops</h1>
-            <p>Keep your details, location and opening hours up to date so buyers can find you.</p>
+            <p>Keep your details, location and opening hours up to date so buyers can find you. Open <strong>Inventory</strong> to manage your products, prices and stock.</p>
         </div>
         <a href="/sell" class="btn btn-primary btn-sm">+ New listing</a>
     </section>
 
     <% if (notice) { %><p class="notice" role="status"><%= notice %></p><% } %>
 
-    <% if (!listings.length) { %>
+    <% if (!listings.length && !work.length) { %>
         <div class="empty">
             <h2>You haven't listed anything yet</h2>
             <p>Add your shop or service and start getting found by buyers near you.</p>
             <a href="/sell" class="btn btn-primary">Create a listing</a>
         </div>
-    <% } else { %>
+    <% } else if (listings.length) { %>
         <div class="my-list">
             <% listings.forEach(function (l) { const st = hoursStatus(l); %>
                 <article class="card my-item">
@@ -29,11 +29,15 @@
                             <span class="muted"><%= [l.street, place(l)].filter(Boolean).join(' · ') %></span>
                             <% if (st) { %><span class="status sm <%= st.isOpen ? 'open' : 'closed' %>"><%= st.label %></span><% } %>
                             <% if (l.latitude == null) { %><span class="chip warn">No map pin</span><% } %>
+                            <span class="chip"><%= l.item_count %> item<%= l.item_count === 1 ? '' : 's' %></span>
+                            <% if (l.low_count) { %><a class="chip warn" href="/listing/<%= l.id %>/inventory?show=low"><%= l.low_count %> low / out of stock</a><% } %>
                         </div>
                     </div>
                     <div class="actions">
                         <a class="btn btn-sm" href="<%= listingPath(l) %>">View</a>
-                        <a class="btn btn-sm btn-primary" href="/listing/<%= l.id %>/edit">Edit</a>
+                        <a class="btn btn-sm btn-primary" href="/listing/<%= l.id %>/inventory">Inventory</a>
+                        <a class="btn btn-sm" href="/listing/<%= l.id %>/team">Team</a>
+                        <a class="btn btn-sm" href="/listing/<%= l.id %>/edit">Edit</a>
                         <form action="/listing/<%= l.id %>/delete" method="post" class="inline confirm-delete" data-name="<%= l.shop_name %>">
                             <button type="submit" class="btn btn-sm btn-danger">Delete</button>
                         </form>
@@ -41,6 +45,32 @@
                 </article>
             <% }) %>
         </div>
+    <% } %>
+
+    <% if (work.length) { %>
+        <section class="work">
+            <h2 class="group-title">Shops you work at</h2>
+            <div class="my-list">
+                <% work.forEach(function (l) { %>
+                    <article class="card my-item">
+                        <div class="avatar"><%= l.shop_name.charAt(0).toUpperCase() %></div>
+                        <div class="info">
+                            <h2 class="h-card"><%= l.shop_name %></h2>
+                            <div class="what">Owned by <%= l.owner_name %> · <span class="muted"><%= l.item_count %> item<%= l.item_count === 1 ? '' : 's' %></span></div>
+                            <div class="meta-line"><span class="muted">You can: <%= permSummary(l.perms) %></span></div>
+                        </div>
+                        <div class="actions">
+                            <a class="btn btn-sm" href="<%= listingPath(l) %>">View</a>
+                            <a class="btn btn-sm btn-primary" href="/listing/<%= l.id %>/inventory">Inventory</a>
+                            <% if (l.perms.shop) { %><a class="btn btn-sm" href="/listing/<%= l.id %>/edit">Edit</a><% } %>
+                            <form action="/listing/<%= l.id %>/leave" method="post" class="inline confirm-leave" data-name="<%= l.shop_name %>">
+                                <button type="submit" class="btn btn-sm btn-danger">Leave</button>
+                            </form>
+                        </div>
+                    </article>
+                <% }) %>
+            </div>
+        </section>
     <% } %>
 </div>
 <script src="/js/confirm-delete.js" defer></script>
