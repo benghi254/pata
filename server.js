@@ -3,6 +3,8 @@ const express = require('express');
 const cookieSession = require('cookie-session');
 
 const db = require('./db');
+const areas = require('./areas');
+const photos = require('./photos');
 const categories = require('./categories');
 const hours = require('./hours');
 const payments = require('./payments');
@@ -29,6 +31,8 @@ Object.assign(app.locals, {
   hoursStatus: (l) => hours.status(hours.parse(l.hours)),
   kes: inventory.kes,
   stockState: inventory.stockState,
+  photoUrl: photos.url,
+  places: areas.PLACES,
 });
 
 // On Vercel, files in public/ are served by the CDN; locally Express serves them.
@@ -52,6 +56,9 @@ app.use((req, res, next) => {
   res.locals.user = req.session.user || null;
   res.locals.siteUrl = SITE_URL || `${req.protocol}://${req.get('host')}`;
   res.locals.path = req.path;
+  // The constituency this buyer browses in (see /area). Shops elsewhere are never listed.
+  res.locals.area = req.session.area || null;
+  res.locals.here = req.originalUrl;
   // One-time messages after a redirect, e.g. "Stock updated."
   res.locals.flash = req.session.flash || null;
   if (req.session.flash) delete req.session.flash;
@@ -79,17 +86,56 @@ function signIn(req, user) {
   req.session.user = { id: user.id, firstName: user.first_name, email: user.email };
 }
 
+// ---------- The buyer's constituency ----------
+
+// Buyers have no accounts, so they pick their county and constituency once; it is kept in
+// their (signed) session cookie. Every list of shops (home counts, category pages, search)
+// only shows shops in that constituency. Shop pages opened from a shared link still work.
+
+// SQL that keeps only listings in the buyer's constituency.
+function inArea(area) {
+  return {
+    sql: `${areas.normSql('county')} = ? AND ${areas.normSql('constituency')} = ?`,
+    params: [areas.norm(area.county), areas.norm(area.constituency)],
+  };
+}
+
+app.get('/area', (req, res) => {
+  res.render('area', {
+    title: 'Choose your constituency', noindex: true,
+    next: safeNext(req.query.next, '/'), error: null,
+  });
+});
+
+app.post('/area', (req, res) => {
+  const nextUrl = safeNext(req.body.next, '/');
+  const place = areas.findPlace(trim(req.body.county), trim(req.body.constituency));
+  if (!place) {
+    return res.status(400).render('area', {
+      title: 'Choose your constituency', noindex: true, next: nextUrl,
+      error: 'Choose your county, then a constituency in that county.',
+    });
+  }
+  req.session.area = place;
+  res.redirect(nextUrl);
+});
+
 // ---------- Browsing ----------
 
 app.get('/', async (req, res) => {
-  const counts = Object.fromEntries(
-    (await db.query('SELECT category, COUNT(*)::int AS n FROM listings GROUP BY category'))
-      .map((r) => [r.category, r.n]),
-  );
+  const { area } = res.locals;
+  let counts = null; // unknown until the buyer picks their constituency
+  if (area) {
+    const f = inArea(area);
+    counts = Object.fromEntries(
+      (await db.query(`SELECT category, COUNT(*)::int AS n FROM listings WHERE ${f.sql} GROUP BY category`, f.params))
+        .map((r) => [r.category, r.n]),
+    );
+  }
   const { siteUrl } = res.locals;
   res.render('home', {
     title: 'Local marketplace for goods and services in Kenya',
-    description: 'PATA connects you with local shops, vendors and fundis near you: groceries, mutura, clothing, barbers, cleaners, tailors and technicians.',
+    description: 'PATA connects you with local shops, vendors and fundis in your constituency: groceries, mutura, clothing, barbers, cleaners, tailors and technicians.',
     canonical: '/',
     jsonLd: [
       { '@context': 'https://schema.org', '@type': 'WebSite', name: 'PATA', url: `${siteUrl}/` },
@@ -105,25 +151,22 @@ app.get('/', async (req, res) => {
 app.get('/category/:slug', async (req, res, next) => {
   const category = categoryBySlug(req.params.slug);
   if (!category) return next();
-  const listings = await db.query(
-    'SELECT * FROM listings WHERE category = ? ORDER BY created_at DESC, id DESC', [category.slug],
-  );
-  const { siteUrl } = res.locals;
+  const { area, siteUrl } = res.locals;
+  let listings = [];
+  if (area) {
+    const f = inArea(area);
+    listings = await db.query(
+      `SELECT *, ${photos.coverSql()} FROM listings WHERE category = ? AND ${f.sql} ORDER BY created_at DESC, id DESC`,
+      [category.slug, ...f.params],
+    );
+  }
   res.render('category', {
     title: `${category.name} near you`,
-    description: `${category.blurb} Browse ${listings.length} ${category.name.toLowerCase()} listed on PATA, with locations, opening hours and phone numbers.`,
+    description: `${category.blurb} Find ${category.name.toLowerCase()} in your constituency on PATA, with locations, opening hours and phone numbers.`,
     canonical: `/category/${category.slug}`,
     ogImage: categories.photoFor(category),
     jsonLd: [
       seo.breadcrumbs(siteUrl, [['Home', '/'], [category.name, `/category/${category.slug}`]]),
-      {
-        '@context': 'https://schema.org',
-        '@type': 'ItemList',
-        name: category.name,
-        itemListElement: listings.map((l, i) => ({
-          '@type': 'ListItem', position: i + 1, url: siteUrl + seo.listingPath(l), name: l.shop_name,
-        })),
-      },
     ],
     category,
     listings,
@@ -133,68 +176,14 @@ app.get('/category/:slug', async (req, res, next) => {
 
 // ---------- Search ----------
 
-// Buyers have no accounts, so "your area" comes from the browser: either its location
-// (lat/lng, rounded by the page) or an area the buyer picks (county, constituency, ward).
-// Results never leave that area unless the buyer widens it.
-const RADII = [5, 10, 25, 50, 100]; // km
-const DEFAULT_RADIUS = 10;
 const MAX_RESULTS = 60;
-
-const num = (v) => (typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN);
-
-// Reads the search address into { q, words, area }. area.mode is 'near', 'place', 'kenya' or null (not chosen yet).
-function readSearch(query) {
-  const q = trim(query.q).slice(0, 100);
-  const words = q.toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6);
-  const lat = num(query.lat);
-  const lng = num(query.lng);
-  if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
-    const r = RADII.includes(Number(query.r)) ? Number(query.r) : DEFAULT_RADIUS;
-    // Listings without a map pin can't be measured, so match those on the county the buyer is in.
-    const county = areas.countyByName(trim(query.county)) || areas.nearestCounty(lat, lng);
-    return { q, words, area: { mode: 'near', lat, lng, r, county: county.name } };
-  }
-  const county = areas.countyByName(trim(query.county));
-  if (county) {
-    return {
-      q, words,
-      area: { mode: 'place', county: county.name, constituency: trim(query.constituency).slice(0, 80), ward: trim(query.ward).slice(0, 80) },
-    };
-  }
-  if (query.area === 'kenya') return { q, words, area: { mode: 'kenya' } };
-  return { q, words, area: null };
-}
-
-// The search address for the same words in another area.
-function searchUrl(q, area) {
-  const p = new URLSearchParams();
-  if (q) p.set('q', q);
-  if (area.mode === 'near') {
-    p.set('lat', area.lat);
-    p.set('lng', area.lng);
-    if (area.r !== DEFAULT_RADIUS) p.set('r', area.r);
-  } else if (area.mode === 'place') {
-    p.set('county', area.county);
-    if (area.constituency) p.set('constituency', area.constituency);
-    if (area.ward) p.set('ward', area.ward);
-  } else if (area.mode === 'kenya') {
-    p.set('area', 'kenya');
-  }
-  return `/search?${p}`;
-}
-
-function describeArea(area) {
-  if (area.mode === 'near') return `within ${area.r} km of you`;
-  if (area.mode === 'kenya') return 'anywhere in Kenya';
-  return `in ${[area.ward, area.constituency, `${area.county} County`].filter(Boolean).join(', ')}`;
-}
 
 // Each word must appear in the product/service, shop name, description or category.
 function textFilter(words) {
   const sql = [];
   const params = [];
   for (const w of words) {
-    const like = `%${w.replace(/[\\%_]/g, '\\$&')}%`;
+    const like = `%${w.replace(/[\%_]/g, '\$&')}%`;
     const cats = categories
       .filter((c) => [c.name, c.keywords, c.group, c.slug].join(' ').toLowerCase().includes(w))
       .map((c) => c.slug);
@@ -204,87 +193,24 @@ function textFilter(words) {
   return { sql: sql.length ? sql.join(' AND ') : 'TRUE', params };
 }
 
-async function findListings(words, area) {
-  const text = textFilter(words);
-  if (area.mode === 'near') {
-    // Pinned listings inside the radius, nearest first; then unpinned ones in the buyer's county.
-    return db.query(`
-      SELECT * FROM (
-        SELECT *, ${areas.distanceSql} AS distance_km FROM listings WHERE ${text.sql}
-      ) s
-      WHERE distance_km <= ? OR (distance_km IS NULL AND ${areas.normSql('county')} = ?)
-      ORDER BY distance_km ASC NULLS LAST, created_at DESC, id DESC
-      LIMIT ${MAX_RESULTS}
-    `, [area.lat, area.lat, area.lng, ...text.params, area.r, areas.norm(area.county)]);
-  }
-  const where = [text.sql];
-  const params = [...text.params];
-  if (area.mode === 'place') {
-    for (const field of ['county', 'constituency', 'ward']) {
-      if (!area[field]) continue;
-      where.push(`${areas.normSql(field)} = ?`);
-      params.push(areas.norm(area[field]));
-    }
-  }
-  return db.query(`SELECT *, NULL::float AS distance_km FROM listings WHERE ${where.join(' AND ')}
-    ORDER BY created_at DESC, id DESC LIMIT ${MAX_RESULTS}`, params);
-}
-
-// Bigger areas to offer, smallest first.
-function widerAreas(area) {
-  if (area.mode === 'near') {
-    return [
-      ...RADII.filter((r) => r > area.r).map((r) => ({ ...area, r })),
-      { mode: 'place', county: area.county, constituency: '', ward: '' },
-      { mode: 'kenya' },
-    ];
-  }
-  if (area.mode === 'place') {
-    const out = [];
-    if (area.ward && area.constituency) out.push({ ...area, ward: '' });
-    if (area.ward || area.constituency) out.push({ ...area, constituency: '', ward: '' });
-    out.push({ mode: 'kenya' });
-    return out;
-  }
-  return [];
-}
-
 app.get('/search', async (req, res) => {
-  const { q, words, area } = readSearch(req.query);
+  const q = trim(req.query.q).slice(0, 100);
+  const words = q.toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6);
+  const { area } = res.locals;
   let listings = [];
-  let wider = [];
   if (area) {
-    listings = await findListings(words, area);
-    // Nothing here? Say how many each wider area would show, so widening is one click.
-    if (!listings.length) {
-      for (const a of widerAreas(area)) {
-        const n = (await findListings(words, a)).length;
-        wider.push({ url: searchUrl(q, a), label: describeArea(a), n });
-      }
-    } else {
-      wider = widerAreas(area).slice(0, 2).map((a) => ({ url: searchUrl(q, a), label: describeArea(a) }));
-    }
+    const text = textFilter(words);
+    const f = inArea(area);
+    listings = await db.query(`SELECT *, ${photos.coverSql()} FROM listings WHERE ${text.sql} AND ${f.sql}
+      ORDER BY created_at DESC, id DESC LIMIT ${MAX_RESULTS}`, [...text.params, ...f.params]);
   }
-  // Constituencies and wards sellers have used, to suggest in the area picker.
-  const places = await db.query(`SELECT DISTINCT county, constituency, ward FROM listings
-    WHERE constituency <> '' OR ward <> ''`);
-  const inCounty = (p) => !area || !area.county || areas.norm(p.county) === areas.norm(area.county);
-  const uniq = (list) => [...new Map(list.filter(Boolean).map((v) => [areas.norm(v), v])).values()].sort();
-
   res.render('search', {
-    title: q ? `Search: ${q}` : 'Search shops and services near you',
+    title: q ? `Search: ${q}` : 'Search shops and services in your constituency',
     noindex: true,
     q,
-    area,
-    areaLabel: area ? describeArea(area) : '',
     listings,
-    wider,
-    radii: RADII,
-    counties: areas.COUNTIES.map((c) => c.name).sort(),
-    constituencies: uniq(places.filter(inCounty).map((p) => p.constituency)),
-    wards: uniq(places.filter(inCounty).map((p) => p.ward)),
+    maxResults: MAX_RESULTS,
     categoryName: (slug) => (categoryBySlug(slug) || {}).name || slug,
-    geoFailed: req.query.geo === 'off',
   });
 });
 
@@ -361,7 +287,8 @@ app.get('/sell', (req, res) => {
 });
 
 // `editing` is the listing being edited, or undefined when creating a new one.
-function renderSellForm(res, kindKey, values, errors, status = 200, editing) {
+// `shopPhotos` are the photos already saved for it.
+function renderSellForm(res, kindKey, values, errors, status = 200, editing, shopPhotos = []) {
   const kind = KINDS[kindKey];
   res.status(status).render('sell-form', {
     title: editing ? `Edit ${editing.shop_name}` : `Sell ${kind.label.toLowerCase()}`,
@@ -374,10 +301,16 @@ function renderSellForm(res, kindKey, values, errors, status = 200, editing) {
     options: categories.filter((c) => c.kind === kindKey),
     days: hours.DAYS,
     payOptions: payments.OPTIONS,
+    photos: shopPhotos,
+    maxPhotos: photos.MAX_PHOTOS,
     errors,
     values,
   });
 }
+
+// Uploaded files can't be put back in the form, so after an error ask for them again.
+const photosAgain = (req, errors) => (req.files && req.files.length && errors.length
+  ? [...errors, 'Please choose your new photos again.'] : errors);
 
 // Turns a listing row into the shape the form uses.
 function listingToValues(l) {
@@ -391,8 +324,9 @@ function listingToValues(l) {
     payMethod: l.pay_method || '',
     payNumber: (payments.forListing(l) || {}).display || '',
     payAccount: l.pay_account || '',
-    county: l.county,
-    constituency: l.constituency,
+    // Older listings had the area typed by hand; match it to the official names where possible.
+    county: (areas.countyByName(l.county) || { name: l.county }).name,
+    constituency: (areas.findPlace(l.county, l.constituency) || { constituency: l.constituency }).constituency,
     ward: l.ward,
     street: l.street,
     latitude: l.latitude ?? '',
@@ -432,7 +366,10 @@ function readListingForm(body, kindKey) {
   const website = normalizeWebsite(values.website);
   if (website === null) errors.push('Enter a valid website address, e.g. www.myshop.co.ke.');
   else values.website = website;
-  if (!values.county) errors.push('County is required.');
+  // Buyers only see shops in their own constituency, so it must be one from the official list.
+  const place = areas.findPlace(values.county, values.constituency);
+  if (place) Object.assign(values, place);
+  else errors.push(values.county ? 'Choose the constituency your shop is in.' : 'Choose your county and constituency.');
   if (!values.street) errors.push('Enter the street, building or a landmark near your shop.');
 
   let lat = null;
@@ -463,12 +400,13 @@ app.get('/sell/:kind', requireLogin, (req, res, next) => {
   renderSellForm(res, req.params.kind, { hours: hours.DEFAULT_HOURS });
 });
 
-app.post('/sell/:kind', requireLogin, async (req, res, next) => {
+app.post('/sell/:kind', requireLogin, photos.upload, async (req, res, next) => {
   const kindKey = req.params.kind;
   if (!KINDS[kindKey]) return next();
 
   const { values, errors, row } = readListingForm(req.body, kindKey);
-  if (errors.length) return renderSellForm(res, kindKey, values, errors, 400);
+  errors.push(...photos.check(req));
+  if (errors.length) return renderSellForm(res, kindKey, values, photosAgain(req, errors), 400);
 
   const listing = await db.one(`
     INSERT INTO listings (user_id, kind, category, title, shop_name, description, phone,
@@ -477,6 +415,7 @@ app.post('/sell/:kind', requireLogin, async (req, res, next) => {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     RETURNING *
   `, [req.session.user.id, kindKey, ...row]);
+  await photos.apply(req, listing.id);
   res.redirect(seo.listingPath(listing));
 });
 
@@ -510,22 +449,26 @@ app.get('/my/listings', requireLogin, async (req, res) => {
   });
 });
 
-app.get('/listing/:id/edit', requireLogin, shopAccess('shop'), (req, res) => {
+app.get('/listing/:id/edit', requireLogin, shopAccess('shop'), async (req, res) => {
   const { listing } = res.locals;
-  renderSellForm(res, listing.kind, listingToValues(listing), [], 200, listing);
+  renderSellForm(res, listing.kind, listingToValues(listing), [], 200, listing, await photos.list(listing.id));
 });
 
-app.post('/listing/:id/edit', requireLogin, shopAccess('shop'), async (req, res) => {
+// multer runs after shopAccess, so nothing is read from people who may not edit this shop.
+app.post('/listing/:id/edit', requireLogin, shopAccess('shop'), photos.upload, async (req, res) => {
   const { listing } = res.locals;
+  const existing = await photos.list(listing.id);
   const { values, errors, row } = readListingForm(req.body, listing.kind);
-  if (errors.length) return renderSellForm(res, listing.kind, values, errors, 400, listing);
+  errors.push(...photos.check(req, existing));
+  if (errors.length) return renderSellForm(res, listing.kind, values, photosAgain(req, errors), 400, listing, existing);
 
   await db.query(`
     UPDATE listings SET category = ?, title = ?, shop_name = ?, description = ?, phone = ?,
       county = ?, constituency = ?, ward = ?, street = ?, latitude = ?, longitude = ?, hours = ?,
-      website = ?, updated_at = now()
+      website = ?, pay_method = ?, pay_number = ?, pay_account = ?, updated_at = now()
     WHERE id = ?
   `, [...row, listing.id]);
+  await photos.apply(req, listing.id);
   res.redirect('/my/listings?done=updated');
 });
 
@@ -581,13 +524,15 @@ app.get('/listing/:id/inventory', requireLogin, shopAccess('view'), async (req, 
   });
 });
 
-function renderItemForm(res, values, errors = [], status = 200) {
+function renderItemForm(res, values, errors = [], status = 200, itemPhotos = []) {
   const { listing, item } = res.locals;
   res.status(status).render('item-form', {
     title: item ? `Edit ${item.name}` : `Add an item · ${listing.shop_name}`,
     noindex: true,
     action: item ? `/listing/${listing.id}/items/${item.id}/edit` : `/listing/${listing.id}/items`,
     editing: item || null,
+    photos: itemPhotos,
+    maxPhotos: photos.MAX_PHOTOS,
     values,
     errors,
   });
@@ -597,24 +542,30 @@ app.get('/listing/:id/items/new', requireLogin, shopAccess('items'), (req, res) 
   renderItemForm(res, { tracked: res.locals.listing.kind === 'goods', visible: true });
 });
 
-app.post('/listing/:id/items', requireLogin, shopAccess('items'), async (req, res) => {
+app.post('/listing/:id/items', requireLogin, shopAccess('items'), photos.upload, async (req, res) => {
   const { listing } = res.locals;
   const { values, errors, item } = inventory.readItemForm(req.body, { adding: true });
-  if (errors.length) return renderItemForm(res, values, errors, 400);
-  await inventory.addItem(listing.id, req.session.user.id, item);
+  errors.push(...photos.check(req));
+  if (errors.length) return renderItemForm(res, values, photosAgain(req, errors), 400);
+  const saved = await inventory.addItem(listing.id, req.session.user.id, item);
+  await photos.apply(req, listing.id, saved.id);
   flash(req, 'ok', `Added ${item.name}.`);
   res.redirect(req.body.another ? `/listing/${listing.id}/items/new` : inventoryPath(listing));
 });
 
-app.get('/listing/:id/items/:itemId/edit', requireLogin, shopAccess('items'), ownItem, (req, res) => {
-  renderItemForm(res, inventory.itemToValues(res.locals.item));
+app.get('/listing/:id/items/:itemId/edit', requireLogin, shopAccess('items'), ownItem, async (req, res) => {
+  const { listing, item } = res.locals;
+  renderItemForm(res, inventory.itemToValues(item), [], 200, await photos.list(listing.id, item.id));
 });
 
-app.post('/listing/:id/items/:itemId/edit', requireLogin, shopAccess('items'), ownItem, async (req, res) => {
+app.post('/listing/:id/items/:itemId/edit', requireLogin, shopAccess('items'), ownItem, photos.upload, async (req, res) => {
   const { listing, item: old } = res.locals;
+  const existing = await photos.list(listing.id, old.id);
   const { values, errors, item } = inventory.readItemForm(req.body, { adding: false });
-  if (errors.length) return renderItemForm(res, values, errors, 400);
+  errors.push(...photos.check(req, existing));
+  if (errors.length) return renderItemForm(res, values, photosAgain(req, errors), 400, existing);
   await inventory.editItem(listing.id, req.session.user.id, old, item);
+  await photos.apply(req, listing.id, old.id);
   flash(req, 'ok', `Saved ${item.name}.`);
   res.redirect(inventoryPath(listing));
 });
@@ -791,11 +742,12 @@ app.get('/listing/:id{/:slug}', async (req, res, next) => {
   const { siteUrl } = res.locals;
   const h = hours.parse(listing.hours);
   const items = await db.query('SELECT * FROM items WHERE listing_id = ? AND visible ORDER BY lower(name), id', [listing.id]);
+  const shopPhotos = await photos.list(listing.id);
   res.render('listing', {
     title: `${listing.shop_name} – ${listing.title} in ${listing.ward || listing.constituency || listing.county}`,
     description: seo.listingDescription(listing, category),
     canonical,
-    ogImage: categories.photoFor(category),
+    ogImage: shopPhotos.length ? photos.url(shopPhotos[0].id) : categories.photoFor(category),
     ogType: 'business.business',
     map: true,
     jsonLd: [
@@ -807,8 +759,25 @@ app.get('/listing/:id{/:slug}', async (req, res, next) => {
     status: hours.status(h),
     week: h ? hours.table(h) : null,
     items,
+    shopPhotos,
+    itemPhotos: await photos.byItem(listing.id),
+    payment: payments.forListing(listing),
     can: await team.access(listing, req.session.user && req.session.user.id),
   });
+});
+
+// Uploaded photos. A photo's id is never reused and its bytes never change, so browsers and
+// Vercel's CDN may keep it for a year.
+app.get('/photos/:id', async (req, res, next) => {
+  const photo = /^\d{1,9}$/.test(req.params.id) && await photos.get(Number(req.params.id));
+  if (!photo) return next();
+  res.set({
+    'Content-Type': photo.mime,
+    'Cache-Control': 'public, max-age=31536000, immutable',
+    'X-Content-Type-Options': 'nosniff',
+    'Content-Security-Policy': "default-src 'none'",
+  });
+  res.send(Buffer.from(photo.data));
 });
 
 // ---------- Search engines ----------
@@ -821,6 +790,7 @@ app.get('/robots.txt', (req, res) => {
     'Disallow: /signup',
     'Disallow: /sell/',
     'Disallow: /invite/',
+    'Disallow: /area',
     '',
     `Sitemap: ${res.locals.siteUrl}/sitemap.xml`,
     '',

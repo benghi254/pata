@@ -25,6 +25,13 @@
 
     <div class="shop-grid">
         <div class="shop-main">
+            <% if (shopPhotos.length) { %>
+                <div class="gallery n<%= Math.min(shopPhotos.length, 4) %>">
+                    <% shopPhotos.forEach(function (p, i) { %>
+                        <a href="<%= photoUrl(p.id) %>" target="_blank" rel="noopener"><img src="<%= photoUrl(p.id) %>" alt="<%= listing.shop_name %> photo <%= i + 1 %>" <%= i ? 'loading="lazy"' : '' %>></a>
+                    <% }) %>
+                </div>
+            <% } %>
             <% if (listing.description) { %>
                 <div class="card pad">
                     <h2 class="h-sm">About</h2>
@@ -36,8 +43,13 @@
                 <div class="card pad">
                     <h2 class="h-sm"><%= listing.kind === 'goods' ? 'Products' : 'Services' %> &amp; prices</h2>
                     <ul class="catalogue">
-                        <% items.forEach(function (i) { const st = stockState(i); %>
-                            <li class="<%= st.key === 'out' ? 'is-out' : '' %>">
+                        <% items.forEach(function (i) { const st = stockState(i); const pics = itemPhotos[i.id] || []; %>
+                            <li class="<%= st.key === 'out' ? 'is-out' : '' %> <%= pics.length ? 'has-pic' : '' %>">
+                                <% if (pics.length) { %>
+                                    <div class="cat-pics">
+                                        <% pics.forEach(function (id, n) { %><a href="<%= photoUrl(id) %>" target="_blank" rel="noopener" class="<%= n ? 'more' : '' %>"><img src="<%= photoUrl(id) %>" alt="<%= i.name %><%= n ? ' photo ' + (n + 1) : '' %>" loading="lazy"></a><% }) %>
+                                    </div>
+                                <% } %>
                                 <div class="cat-name">
                                     <strong><%= i.name %></strong>
                                     <% if (i.description) { %><span class="muted"><%= i.description %></span><% } %>

@@ -121,6 +121,18 @@ const SCHEMA = `
     used_at      TIMESTAMPTZ
   );
   CREATE INDEX IF NOT EXISTS listing_invites_listing ON listing_invites(listing_id);
+
+  -- Photos sellers upload: of the shop (item_id NULL) or of one catalogue item.
+  CREATE TABLE IF NOT EXISTS photos (
+    id          SERIAL PRIMARY KEY,
+    listing_id  INTEGER NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+    item_id     INTEGER REFERENCES items(id) ON DELETE CASCADE,
+    mime        TEXT NOT NULL,
+    data        BYTEA NOT NULL,
+    position    INTEGER NOT NULL DEFAULT 0,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+  CREATE INDEX IF NOT EXISTS photos_owner ON photos(listing_id, item_id, position);
 `;
 
 // Neon URLs say sslmode=require; pin the strict certificate check pg uses today

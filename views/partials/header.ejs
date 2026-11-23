@@ -49,12 +49,16 @@
         <div class="wrap">
             <a href="/" class="logo grad-text">PATA</a>
             <% if (path !== '/' && path !== '/search') { %>
-            <form class="head-search" role="search" action="/search" method="get" data-area-search>
-                <label for="head-q" class="visually-hidden">Search shops and services near you</label>
+            <form class="head-search" role="search" action="/search" method="get">
+                <label for="head-q" class="visually-hidden">Search shops and services in your constituency</label>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-                <input id="head-q" name="q" type="search" placeholder="Search near you…" autocomplete="off" enterkeyhint="search">
+                <input id="head-q" name="q" type="search" placeholder="<%= area ? 'Search in ' + area.constituency + '…' : 'Search near you…' %>" autocomplete="off" enterkeyhint="search">
             </form>
             <% } %>
+            <a class="area-chip" href="/area?next=<%= encodeURIComponent(here) %>" title="Change your constituency">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 1 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+                <%= area ? area.constituency : 'Choose your area' %>
+            </a>
             <nav class="nav">
                 <a href="/">Browse</a>
                 <a href="/sell">Sell</a>

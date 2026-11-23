@@ -1,5 +1,6 @@
 <% const st = hoursStatus(l); %>
 <article class="card lift listing">
+    <% if (l.photo_id) { %><img class="cover" src="<%= photoUrl(l.photo_id) %>" alt="" loading="lazy"><% } %>
     <div class="top">
         <div class="avatar"><%= l.shop_name.charAt(0).toUpperCase() %></div>
         <div>
@@ -7,9 +8,8 @@
             <div class="what"><%= l.title %><% if (typeof catName !== 'undefined' && catName) { %> · <%= catName %><% } %></div>
         </div>
     </div>
-    <% if (st || l.distance_km != null) { %>
+    <% if (st) { %>
     <div class="card-tags">
-        <% if (l.distance_km != null) { %><span class="chip"><%= l.distance_km < 1 ? 'Under 1 km' : (l.distance_km < 10 ? l.distance_km.toFixed(1) : Math.round(l.distance_km)) + ' km' %> away</span><% } %>
         <% if (st) { %><span class="status sm <%= st.isOpen ? 'open' : 'closed' %>"><%= st.label %></span><% } %>
     </div>
     <% } %>

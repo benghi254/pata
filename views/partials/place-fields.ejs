@@ -1,0 +1,24 @@
+<%# County + constituency dropdowns. Without JavaScript every constituency is listed under its county;
+    /js/place-fields.js narrows the second list to the county picked.
+    Locals: county, constituency (selected values), hint (optional text under the fields). %>
+<div class="cols place-fields" data-place-fields>
+    <div class="field">
+        <label for="county">County</label>
+        <select id="county" name="county" required>
+            <option value="">Choose county…</option>
+            <% places.forEach(function (p) { %><option <%= p.county === county ? 'selected' : '' %>><%= p.county %></option><% }) %>
+        </select>
+    </div>
+    <div class="field">
+        <label for="constituency">Constituency</label>
+        <select id="constituency" name="constituency" required>
+            <option value="">Choose constituency…</option>
+            <% places.forEach(function (p) { %>
+                <optgroup label="<%= p.county %>">
+                    <% p.constituencies.forEach(function (c) { %><option <%= p.county === county && c === constituency ? 'selected' : '' %>><%= c %></option><% }) %>
+                </optgroup>
+            <% }) %>
+        </select>
+    </div>
+</div>
+<script src="/js/place-fields.js" defer></script>

@@ -8,14 +8,16 @@
                 <h1><%= category.name %></h1>
                 <p><%= category.blurb %></p>
             </div>
-            <span class="chip <%= listings.length ? 'live' : '' %>"><%= listings.length %> listed</span>
+            <% if (area) { %><span class="chip <%= listings.length ? 'live' : '' %>"><%= listings.length %> in <%= area.constituency %></span><% } %>
         </div>
     </section>
 
-    <% if (!listings.length) { %>
+    <% if (!area) { %>
+        <div class="section"><%- include('partials/area-picker', { next: '/category/' + category.slug }) %></div>
+    <% } else if (!listings.length) { %>
         <div class="empty">
-            <h2>Nobody here yet</h2>
-            <p>Be the first <%= category.kind === 'goods' ? 'seller' : 'expert' %> in <%= category.name %>.</p>
+            <h2>Nobody in <%= area.constituency %> yet</h2>
+            <p>No <%= category.name.toLowerCase() %> have listed in <%= area.constituency %> constituency yet. Be the first <%= category.kind === 'goods' ? 'seller' : 'expert' %> here.</p>
             <a href="/sell/<%= category.kind %>" class="btn btn-primary">Create a listing</a>
         </div>
     <% } else { %>

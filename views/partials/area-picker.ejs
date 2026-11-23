@@ -1,0 +1,9 @@
+<%# Where the buyer chooses the constituency they browse in. Locals: next (where to go after), intro (optional). %>
+<% const cur = area || {}; %>
+<form action="/area" method="post" class="card pad area-picker">
+    <h2 class="h-sm"><%= area ? 'Change your constituency' : 'Which constituency are you in?' %></h2>
+    <p class="hint"><%= typeof intro !== 'undefined' && intro ? intro : 'PATA only shows shops, vendors and fundis in your own constituency. We remember it in this browser.' %></p>
+    <input type="hidden" name="next" value="<%= next %>">
+    <%- include('place-fields', { county: cur.county || '', constituency: cur.constituency || '' }) %>
+    <button type="submit" class="btn btn-primary">Show shops in my constituency</button>
+</form>

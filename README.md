@@ -42,6 +42,14 @@ in `data/pgdata`, so local work never touches live data. Delete that folder to s
 - **Accounts are for sellers only.** Buyers browse shops, see maps and hours, and call sellers without
   signing up. Sellers create an account (`/signup`) and log in (`/login`) to list and manage their
   shops; passwords are stored scrypt-hashed.
+- **Your constituency only**: buyers pick their county and constituency once (`/area`, kept in their
+  session cookie, changeable from the header). Home page counts, category pages and search only show
+  shops in that constituency. Sellers must choose their constituency from the official list of 290
+  (`areas.js`), so the two always match. Shop pages opened from a shared link still open for anyone.
+- **Photos**: sellers can add up to 4 photos of their shop and up to 4 for each product or service in
+  their catalogue (JPG, PNG or WebP). The browser shrinks them to 1600 px before uploading. They are
+  stored in Postgres (`photos` table, served from `/photos/<id>`), so nothing extra is needed on Vercel.
+  The first shop photo appears on listing cards and in link previews.
 - **Sell**: logged-in users list a product (`/sell/goods`) or a service (`/sell/services`). Sellers give
   their street, building or landmark, drop a pin on a map (or use their phone's location), and set
   opening and closing times for each day of the week.

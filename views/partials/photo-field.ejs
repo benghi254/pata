@@ -1,0 +1,24 @@
+<%# Photo upload for a shop or an item. The form needs enctype="multipart/form-data".
+    Locals: photos (already saved), maxPhotos, label, hint. %>
+<fieldset class="photo-field" data-photo-field data-max="<%= maxPhotos %>">
+    <legend><%= label %> <span class="opt">(optional, up to <%= maxPhotos %>)</span></legend>
+    <p class="hint"><%= hint %></p>
+    <% if (photos.length) { %>
+        <div class="photo-list">
+            <% photos.forEach(function (p) { %>
+                <label class="saved-photo" data-saved-photo>
+                    <img src="<%= photoUrl(p.id) %>" alt="" loading="lazy">
+                    <span><input type="checkbox" name="removePhoto" value="<%= p.id %>"> Remove</span>
+                </label>
+            <% }) %>
+        </div>
+    <% } %>
+    <label class="photo-drop">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        <span><strong>Add photos</strong> · take a picture or choose from your phone (JPG, PNG or WebP)</span>
+        <input type="file" name="photos" accept="image/jpeg,image/png,image/webp" multiple>
+    </label>
+    <p class="hint" data-photo-note aria-live="polite"></p>
+    <div class="photo-list previews" data-previews></div>
+</fieldset>
+<script src="/js/photos.js" defer></script>

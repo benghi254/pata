@@ -1,108 +1,41 @@
 <%- include('partials/header') %>
-<% const a = area || {}; %>
 <div class="wrap search-page">
     <section class="page-head">
         <span class="eyebrow">Search</span>
-        <h1><%= q ? '“' + q + '”' : 'Shops & services near you' %></h1>
+        <h1><%= q ? '“' + q + '”' : 'Shops & services in your constituency' %></h1>
     </section>
 
-    <form class="finder search-again" role="search" action="/search" method="get" <%= area ? '' : 'data-area-search' %>>
+    <form class="finder search-again" role="search" action="/search" method="get">
         <label for="q" class="visually-hidden">Search shops and services</label>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
         <input id="q" name="q" type="search" value="<%= q %>" placeholder="What do you need? Try plumber, mama fua, boda…" autocomplete="off" enterkeyhint="search">
-        <%# Keep searching in the same area. %>
-        <% if (a.mode === 'near') { %>
-            <input type="hidden" name="lat" value="<%= a.lat %>"><input type="hidden" name="lng" value="<%= a.lng %>">
-            <% if (a.r !== 10) { %><input type="hidden" name="r" value="<%= a.r %>"><% } %>
-        <% } else if (a.mode === 'place') { %>
-            <input type="hidden" name="county" value="<%= a.county %>">
-            <% if (a.constituency) { %><input type="hidden" name="constituency" value="<%= a.constituency %>"><% } %>
-            <% if (a.ward) { %><input type="hidden" name="ward" value="<%= a.ward %>"><% } %>
-        <% } else if (a.mode === 'kenya') { %>
-            <input type="hidden" name="area" value="kenya">
-        <% } %>
     </form>
 
-    <% if (area) { %>
-        <div class="area-bar" id="area-bar"
-             data-area="<%= JSON.stringify(a.mode === 'near' ? { lat: a.lat, lng: a.lng, r: a.r } : a.mode === 'place' ? { county: a.county, constituency: a.constituency, ward: a.ward } : {}) %>">
+    <% if (!area) { %>
+        <%- include('partials/area-picker', { next: here }) %>
+    <% } else { %>
+        <div class="area-bar">
             <p>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 1 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
-                <span><strong><%= listings.length %><%= listings.length >= 60 ? '+' : '' %> <%= listings.length === 1 ? 'result' : 'results' %></strong> <%= areaLabel %><% if (a.mode === 'near') { %>
-                    <span class="sub">· plus shops without a map pin in <%= a.county %> County</span><% } %></span>
+                <span><strong><%= listings.length %><%= listings.length >= maxResults ? '+' : '' %> <%= listings.length === 1 ? 'result' : 'results' %></strong>
+                    in <%= area.constituency %>, <%= area.county %> County</span>
             </p>
             <div class="area-actions">
-                <% if (listings.length) { wider.forEach(function (w) { %><a class="pill" href="<%= w.url %>">Widen: <%= w.label %></a><% }) } %>
-                <button type="button" class="pill" data-open-picker>Change area</button>
+                <a class="pill" href="/area?next=<%= encodeURIComponent(here) %>">Change constituency</a>
             </div>
         </div>
-    <% } %>
 
-    <details class="area-picker card" id="area-picker" <%= area ? '' : 'open' %>>
-        <summary><%= area ? 'Search somewhere else' : 'Where should we look?' %></summary>
-        <% if (!area) { %>
-            <p class="hint">PATA shows shops and fundis around you. Share your location, or pick your area. We only use it for this search.</p>
-        <% } %>
-        <p class="geo-msg" id="geo-msg" role="status" <%= geoFailed ? '' : 'hidden' %>>We couldn't get your location. Pick your county instead.</p>
-        <form action="/search" method="get" class="picker-form" id="picker-form">
-            <input type="hidden" name="q" value="<%= q %>">
-            <div class="use-loc">
-                <button type="button" class="btn btn-primary" id="use-location" data-q="<%= q %>" hidden>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8"/></svg>
-                    Use my location
-                </button>
-                <% if (a.mode === 'near') { %>
-                    <label class="radius">Within
-                        <select id="radius" data-lat="<%= a.lat %>" data-lng="<%= a.lng %>">
-                            <% radii.forEach(function (r) { %><option value="<%= r %>" <%= r === a.r ? 'selected' : '' %>><%= r %> km</option><% }) %>
-                        </select>
-                    </label>
-                <% } %>
+        <% if (listings.length) { %>
+            <div class="grid section">
+                <% listings.forEach(function (l) { %><%- include('partials/listing-card', { l: l, catName: categoryName(l.category) }) %><% }) %>
             </div>
-            <p class="or"><span>or pick your area</span></p>
-            <div class="cols three">
-                <div class="field">
-                    <label for="county">County</label>
-                    <select id="county" name="county" required>
-                        <option value="">Choose county…</option>
-                        <% counties.forEach(function (c) { %><option <%= c === a.county && a.mode === 'place' ? 'selected' : '' %>><%= c %></option><% }) %>
-                    </select>
-                </div>
-                <div class="field">
-                    <label for="constituency">Constituency <span class="opt">(optional)</span></label>
-                    <input id="constituency" name="constituency" list="constituency-list" value="<%= a.mode === 'place' ? a.constituency : '' %>" autocomplete="off">
-                    <datalist id="constituency-list"><% constituencies.forEach(function (c) { %><option value="<%= c %>"><% }) %></datalist>
-                </div>
-                <div class="field">
-                    <label for="ward">Ward <span class="opt">(optional)</span></label>
-                    <input id="ward" name="ward" list="ward-list" value="<%= a.mode === 'place' ? a.ward : '' %>" autocomplete="off">
-                    <datalist id="ward-list"><% wards.forEach(function (w) { %><option value="<%= w %>"><% }) %></datalist>
-                </div>
-            </div>
-            <button type="submit" class="btn">Show results in this area</button>
-        </form>
-    </details>
-
-    <% if (area && listings.length) { %>
-        <div class="grid section">
-            <% listings.forEach(function (l) { %><%- include('partials/listing-card', { l: l, catName: categoryName(l.category) }) %><% }) %>
-        </div>
-    <% } else if (area) { %>
-        <div class="empty">
-            <h2>Nothing <%= q ? 'for “' + q + '” ' : '' %><%= areaLabel %> yet</h2>
-            <% const hits = wider.filter(function (w) { return w.n; }); %>
-            <% if (hits.length) { %>
-                <p>Try a wider area:</p>
-                <div class="widen-list">
-                    <% hits.forEach(function (w, i) { %>
-                        <a class="btn <%= i === 0 ? 'btn-primary' : '' %>" href="<%= w.url %>">Search <%= w.label %> (<%= w.n %><%= w.n >= 60 ? '+' : '' %>)</a>
-                    <% }) %>
-                </div>
-            <% } else { %>
-                <p>No shop on PATA matches that yet, even across Kenya. Try another word, or browse the categories.</p>
+        <% } else { %>
+            <div class="empty">
+                <h2>Nothing <%= q ? 'for “' + q + '” ' : '' %>in <%= area.constituency %> yet</h2>
+                <p>PATA only shows shops in your own constituency. Try another word, or browse the categories.</p>
                 <a class="btn btn-primary" href="/">Browse categories</a>
-            <% } %>
-        </div>
+            </div>
+        <% } %>
     <% } %>
 </div>
 <%- include('partials/footer') %>
