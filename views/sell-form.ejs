@@ -54,18 +54,8 @@
                         <label for="website">Website <span class="opt">(optional)</span></label>
                         <input id="website" type="text" inputmode="url" name="website" value="<%= values.website || '' %>" placeholder="e.g. www.myshop.co.ke" autocomplete="url" maxlength="400">
                     </div>
-                    <div class="field">
-                        <label for="county">County</label>
-                        <input id="county" type="text" name="county" value="<%= values.county || '' %>" placeholder="e.g. Nairobi" list="county-list" autocomplete="off" required>
-                        <datalist id="county-list"><% counties.forEach(function (c) { %><option value="<%= c %>"><% }) %></datalist>
-                    </div>
-                    <div class="field">
-                        <label for="constituency">Constituency <span class="opt">(optional)</span></label>
-                        <input id="constituency" type="text" name="constituency" value="<%= values.constituency || '' %>">
-                    </div>
-                    <div class="field">
-                        <label for="ward">Ward <span class="opt">(optional)</span></label>
-                        <input id="ward" type="text" name="ward" value="<%= values.ward || '' %>">
+                    <div class="span">
+                        <%- include('partials/place-fields', { place: { county: values.county, constituency: values.constituency, ward: values.ward }, countyRequired: true }) %>
                     </div>
                     <div class="field span">
                         <label for="street">Street, building or landmark</label>
