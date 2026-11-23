@@ -72,6 +72,30 @@
                     </div>
                 </div>
             </fieldset>
+            <fieldset class="pay-fields">
+                <legend>Mobile money payments <span class="opt">(optional)</span></legend>
+                <p class="hint">Already have an M-Pesa Till, Paybill, Pochi la Biashara or Airtel Money number? Add it and buyers can pay you directly from their phone. PATA never touches the money.</p>
+                <% const payOpt = payOptions.find(function (o) { return o.value === values.payMethod; }); %>
+                <div class="cols">
+                    <div class="field span">
+                        <label for="payMethod">How buyers pay you</label>
+                        <select id="payMethod" name="payMethod">
+                            <option value="">No mobile money details</option>
+                            <% payOptions.forEach(function (o) { %>
+                                <option value="<%= o.value %>" data-number-label="<%= o.numberLabel %>" data-kind="<%= o.kind %>" <%= values.payMethod === o.value ? 'selected' : '' %>><%= o.label %></option>
+                            <% }) %>
+                        </select>
+                    </div>
+                    <div class="field" data-pay="number" <%= payOpt ? '' : 'hidden' %>>
+                        <label for="payNumber"><%= payOpt ? payOpt.numberLabel : 'Number' %></label>
+                        <input id="payNumber" type="text" inputmode="numeric" name="payNumber" value="<%= values.payNumber || '' %>" placeholder="<%= payOpt && payOpt.kind === 'phone' ? '0712 345678' : 'e.g. 123456' %>" maxlength="20">
+                    </div>
+                    <div class="field" data-pay="account" <%= values.payMethod === 'paybill' ? '' : 'hidden' %>>
+                        <label for="payAccount">Account number</label>
+                        <input id="payAccount" type="text" name="payAccount" value="<%= values.payAccount || '' %>" placeholder="e.g. your shop name" maxlength="20">
+                    </div>
+                </div>
+            </fieldset>
             <fieldset>
                 <legend>Exact location on the map <span class="opt">(recommended)</span></legend>
                 <p class="hint">Tap the map where your shop is, or use your phone's location while you're at the shop. You can drag the pin to adjust it.</p>

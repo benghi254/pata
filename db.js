@@ -35,12 +35,18 @@ const SCHEMA = `
     longitude    DOUBLE PRECISION,
     hours        TEXT,
     website      TEXT NOT NULL DEFAULT '',
+    pay_method   TEXT NOT NULL DEFAULT '',
+    pay_number   TEXT NOT NULL DEFAULT '',
+    pay_account  TEXT NOT NULL DEFAULT '',
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at   TIMESTAMPTZ
   );
 
   -- Added after launch: existing databases get the column here.
   ALTER TABLE listings ADD COLUMN IF NOT EXISTS website TEXT NOT NULL DEFAULT '';
+  ALTER TABLE listings ADD COLUMN IF NOT EXISTS pay_method TEXT NOT NULL DEFAULT '';
+  ALTER TABLE listings ADD COLUMN IF NOT EXISTS pay_number TEXT NOT NULL DEFAULT '';
+  ALTER TABLE listings ADD COLUMN IF NOT EXISTS pay_account TEXT NOT NULL DEFAULT '';
 
   CREATE INDEX IF NOT EXISTS listings_category ON listings(category);
   CREATE INDEX IF NOT EXISTS listings_user ON listings(user_id);
