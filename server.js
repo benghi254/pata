@@ -131,6 +131,163 @@ app.get('/category/:slug', async (req, res, next) => {
   });
 });
 
+// ---------- Search ----------
+
+// Buyers have no accounts, so "your area" comes from the browser: either its location
+// (lat/lng, rounded by the page) or an area the buyer picks (county, constituency, ward).
+// Results never leave that area unless the buyer widens it.
+const RADII = [5, 10, 25, 50, 100]; // km
+const DEFAULT_RADIUS = 10;
+const MAX_RESULTS = 60;
+
+const num = (v) => (typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN);
+
+// Reads the search address into { q, words, area }. area.mode is 'near', 'place', 'kenya' or null (not chosen yet).
+function readSearch(query) {
+  const q = trim(query.q).slice(0, 100);
+  const words = q.toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6);
+  const lat = num(query.lat);
+  const lng = num(query.lng);
+  if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
+    const r = RADII.includes(Number(query.r)) ? Number(query.r) : DEFAULT_RADIUS;
+    // Listings without a map pin can't be measured, so match those on the county the buyer is in.
+    const county = areas.countyByName(trim(query.county)) || areas.nearestCounty(lat, lng);
+    return { q, words, area: { mode: 'near', lat, lng, r, county: county.name } };
+  }
+  const county = areas.countyByName(trim(query.county));
+  if (county) {
+    return {
+      q, words,
+      area: { mode: 'place', county: county.name, constituency: trim(query.constituency).slice(0, 80), ward: trim(query.ward).slice(0, 80) },
+    };
+  }
+  if (query.area === 'kenya') return { q, words, area: { mode: 'kenya' } };
+  return { q, words, area: null };
+}
+
+// The search address for the same words in another area.
+function searchUrl(q, area) {
+  const p = new URLSearchParams();
+  if (q) p.set('q', q);
+  if (area.mode === 'near') {
+    p.set('lat', area.lat);
+    p.set('lng', area.lng);
+    if (area.r !== DEFAULT_RADIUS) p.set('r', area.r);
+  } else if (area.mode === 'place') {
+    p.set('county', area.county);
+    if (area.constituency) p.set('constituency', area.constituency);
+    if (area.ward) p.set('ward', area.ward);
+  } else if (area.mode === 'kenya') {
+    p.set('area', 'kenya');
+  }
+  return `/search?${p}`;
+}
+
+function describeArea(area) {
+  if (area.mode === 'near') return `within ${area.r} km of you`;
+  if (area.mode === 'kenya') return 'anywhere in Kenya';
+  return `in ${[area.ward, area.constituency, `${area.county} County`].filter(Boolean).join(', ')}`;
+}
+
+// Each word must appear in the product/service, shop name, description or category.
+function textFilter(words) {
+  const sql = [];
+  const params = [];
+  for (const w of words) {
+    const like = `%${w.replace(/[\\%_]/g, '\\$&')}%`;
+    const cats = categories
+      .filter((c) => [c.name, c.keywords, c.group, c.slug].join(' ').toLowerCase().includes(w))
+      .map((c) => c.slug);
+    sql.push(`(title ILIKE ? OR shop_name ILIKE ? OR description ILIKE ?${cats.length ? ` OR category IN (${cats.map(() => '?').join(', ')})` : ''})`);
+    params.push(like, like, like, ...cats);
+  }
+  return { sql: sql.length ? sql.join(' AND ') : 'TRUE', params };
+}
+
+async function findListings(words, area) {
+  const text = textFilter(words);
+  if (area.mode === 'near') {
+    // Pinned listings inside the radius, nearest first; then unpinned ones in the buyer's county.
+    return db.query(`
+      SELECT * FROM (
+        SELECT *, ${areas.distanceSql} AS distance_km FROM listings WHERE ${text.sql}
+      ) s
+      WHERE distance_km <= ? OR (distance_km IS NULL AND ${areas.normSql('county')} = ?)
+      ORDER BY distance_km ASC NULLS LAST, created_at DESC, id DESC
+      LIMIT ${MAX_RESULTS}
+    `, [area.lat, area.lat, area.lng, ...text.params, area.r, areas.norm(area.county)]);
+  }
+  const where = [text.sql];
+  const params = [...text.params];
+  if (area.mode === 'place') {
+    for (const field of ['county', 'constituency', 'ward']) {
+      if (!area[field]) continue;
+      where.push(`${areas.normSql(field)} = ?`);
+      params.push(areas.norm(area[field]));
+    }
+  }
+  return db.query(`SELECT *, NULL::float AS distance_km FROM listings WHERE ${where.join(' AND ')}
+    ORDER BY created_at DESC, id DESC LIMIT ${MAX_RESULTS}`, params);
+}
+
+// Bigger areas to offer, smallest first.
+function widerAreas(area) {
+  if (area.mode === 'near') {
+    return [
+      ...RADII.filter((r) => r > area.r).map((r) => ({ ...area, r })),
+      { mode: 'place', county: area.county, constituency: '', ward: '' },
+      { mode: 'kenya' },
+    ];
+  }
+  if (area.mode === 'place') {
+    const out = [];
+    if (area.ward && area.constituency) out.push({ ...area, ward: '' });
+    if (area.ward || area.constituency) out.push({ ...area, constituency: '', ward: '' });
+    out.push({ mode: 'kenya' });
+    return out;
+  }
+  return [];
+}
+
+app.get('/search', async (req, res) => {
+  const { q, words, area } = readSearch(req.query);
+  let listings = [];
+  let wider = [];
+  if (area) {
+    listings = await findListings(words, area);
+    // Nothing here? Say how many each wider area would show, so widening is one click.
+    if (!listings.length) {
+      for (const a of widerAreas(area)) {
+        const n = (await findListings(words, a)).length;
+        wider.push({ url: searchUrl(q, a), label: describeArea(a), n });
+      }
+    } else {
+      wider = widerAreas(area).slice(0, 2).map((a) => ({ url: searchUrl(q, a), label: describeArea(a) }));
+    }
+  }
+  // Constituencies and wards sellers have used, to suggest in the area picker.
+  const places = await db.query(`SELECT DISTINCT county, constituency, ward FROM listings
+    WHERE constituency <> '' OR ward <> ''`);
+  const inCounty = (p) => !area || !area.county || areas.norm(p.county) === areas.norm(area.county);
+  const uniq = (list) => [...new Map(list.filter(Boolean).map((v) => [areas.norm(v), v])).values()].sort();
+
+  res.render('search', {
+    title: q ? `Search: ${q}` : 'Search shops and services near you',
+    noindex: true,
+    q,
+    area,
+    areaLabel: area ? describeArea(area) : '',
+    listings,
+    wider,
+    radii: RADII,
+    counties: areas.COUNTIES.map((c) => c.name).sort(),
+    constituencies: uniq(places.filter(inCounty).map((p) => p.constituency)),
+    wards: uniq(places.filter(inCounty).map((p) => p.ward)),
+    categoryName: (slug) => (categoryBySlug(slug) || {}).name || slug,
+    geoFailed: req.query.geo === 'off',
+  });
+});
+
 // ---------- Accounts ----------
 
 // Accounts are only for sellers. Buyers browse and contact shops without one.
