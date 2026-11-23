@@ -1,0 +1,8 @@
+<%# An order's items and total. Locals: o (order), items. %>
+<ul class="order-summary">
+    <% items.forEach(function (l) { %>
+        <li><span><b><%= l.quantity %> ×</b> <%= l.name %><% if (l.unit) { %> <span class="muted"><%= l.unit %></span><% } %></span>
+            <span><%= l.price != null ? kes(Number(l.price) * l.quantity) : 'at pickup' %></span></li>
+    <% }) %>
+    <li class="total"><span>Total, paid at pickup</span><span><%= kes(o.total) %><%= o.has_unpriced ? ' + priced items at pickup' : '' %></span></li>
+</ul>

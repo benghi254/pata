@@ -933,3 +933,56 @@ html.map-open, html.map-open body { overflow: hidden; }
 .rating-top time { font-size: 12px; }
 .rating-list p { margin: 6px 0 0; font-size: 14px; overflow-wrap: anywhere; white-space: pre-line; }
 .code-input { font-size: 26px; letter-spacing: 0.4em; text-align: center; font-family: var(--display); }
+
+/* ---------- Pickup orders ---------- */
+
+.order-lines { list-style: none; margin: 0 0 10px; padding: 0; }
+.order-lines li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.ol-name { display: flex; flex-direction: column; min-width: 0; }
+.ol-name label { font-size: 15px; font-weight: 400; }
+.ol-name .muted { font-size: 13px; }
+.qty-step { display: flex; align-items: center; gap: 4px; flex: none; }
+.qty-step .btn { width: 36px; height: 36px; padding: 0; font-size: 18px; }
+.qty-step input { width: 56px; text-align: center; padding: 8px 4px; -moz-appearance: textfield; }
+.qty-step input::-webkit-inner-spin-button, .qty-step input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.order-total { font-weight: 700; color: var(--accent); margin: 4px 0 16px; min-height: 1.4em; }
+
+.order-status { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-weight: 700; font-size: 14px; border: 1px solid var(--border); background: var(--surface-2); }
+.order-status.sm { padding: 3px 10px; font-size: 12px; }
+.tone-ok { color: var(--ok-text); background: var(--ok-bg); border-color: var(--ok-border); }
+.tone-warn { color: var(--warn-text); background: var(--warn-bg); border-color: var(--warn-border); }
+.tone-bad { color: var(--bad-text); background: var(--bad-bg); border-color: var(--bad-border); }
+.tone-info { color: var(--accent); background: #f3edff; border-color: var(--border-hi); }
+.tone-done { color: var(--muted); }
+
+.order-steps { list-style: none; display: flex; gap: 6px; padding: 0; margin: 18px 0; counter-reset: s; }
+.order-steps li { flex: 1; text-align: center; font-size: 12px; font-weight: 700; color: var(--muted); padding-top: 12px; border-top: 4px solid var(--border); }
+.order-steps li.done { color: var(--accent); border-color: var(--violet); }
+.pickup-code { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 16px; margin: 0 0 18px; border-radius: 16px; background: var(--surface-2); border: 2px dashed var(--border-hi); }
+.pickup-code span { font-size: 12px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
+.pickup-code b { font-family: var(--display); font-size: 40px; letter-spacing: 0.25em; line-height: 1.2; }
+.pickup-code small { color: var(--muted); }
+.order-facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0 0 16px; font-size: 15px; }
+.order-facts dt { font-weight: 700; color: var(--muted); }
+.order-facts dd { margin: 0; overflow-wrap: anywhere; }
+.order-summary { list-style: none; margin: 0 0 16px; padding: 0; font-size: 14px; }
+.order-summary li { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+.order-summary li.total { font-weight: 800; border-bottom: none; }
+
+.orders-setting { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+.orders-setting .hint { margin: 4px 0 0; }
+.orders-tabs { margin-bottom: 14px; }
+.orders-list { display: flex; flex-direction: column; gap: 14px; }
+.order-card.status-pending { border-color: var(--warn-border); box-shadow: 0 0 0 2px var(--warn-bg), var(--shadow); }
+.order-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.order-note { font-size: 14px; margin: 0 0 10px; padding: 8px 12px; border-radius: 10px; background: var(--warn-bg); overflow-wrap: anywhere; }
+.order-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.decline-form, .collect-form { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.decline-form input { width: 220px; padding: 8px 12px; font-size: 14px; }
+.collect-form input[name=code] { width: 96px; padding: 8px 12px; font-size: 14px; letter-spacing: 0.15em; }
+.check.sm { font-size: 13px; font-weight: 500; margin: 0; }
+.late { color: var(--bad-text); font-weight: 700; }
+.order-row { text-decoration: none; }
+.order-brief { font-size: 13px; margin-top: 4px; }
+.order-amt { font-weight: 800; font-size: 16px; }
+.narrow-card { max-width: 520px; }

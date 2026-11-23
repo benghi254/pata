@@ -20,6 +20,7 @@
         </div>
         <% if (can) { %>
             <a href="/listing/<%= listing.id %>/inventory" class="btn btn-sm">Manage inventory</a>
+            <% if (can.orders) { %><a href="/listing/<%= listing.id %>/orders" class="btn btn-sm">Orders</a><% } %>
             <% if (can.shop) { %><a href="/listing/<%= listing.id %>/edit" class="btn btn-sm">Edit listing</a><% } %>
         <% } %>
         <% if (status) { %>
@@ -62,6 +63,8 @@
                     <a href="/listing/<%= listing.id %>/items/new" class="btn btn-sm btn-primary">+ Add items</a>
                 </div>
             <% } %>
+
+            <%- include('partials/order-form') %>
 
             <div class="card pad">
                 <h2 class="h-sm">Location</h2>
