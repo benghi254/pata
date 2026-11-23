@@ -1,0 +1,30 @@
+<%- include('partials/header') %>
+<% const base = '/listing/' + listing.id; const qs = function (p) { return '?' + new URLSearchParams(Object.assign({}, itemId ? { item: itemId } : {}, p > 1 ? { page: p } : {})); }; %>
+<div class="wrap">
+    <section class="section-head page-head">
+        <div>
+            <a href="<%= base %>/inventory" class="back">← Inventory</a><br>
+            <span class="eyebrow">History</span>
+            <h1><%= itemId ? (item ? item.name : (rows[0] ? rows[0].item_name : 'Deleted item')) : listing.shop_name %></h1>
+            <p>Every change to <%= itemId ? 'this item' : 'your catalogue' %>, newest first: items added, edited, hidden or deleted, and each stock movement.</p>
+        </div>
+        <div class="head-actions">
+            <% if (itemId) { %><a href="<%= base %>/inventory/history" class="btn btn-sm">All items</a><% } %>
+            <a href="<%= base %>/inventory/history.csv" class="btn btn-sm">Export CSV</a>
+        </div>
+    </section>
+
+    <div class="card pad">
+        <% if (!rows.length) { %><p class="hint">No changes yet.</p><% } %>
+        <ol class="changes wide">
+            <% rows.forEach(function (c) { %><%- include('partials/change', { c: c, actions: actions }) %><% }) %>
+        </ol>
+        <% if (page > 1 || hasMore) { %>
+            <nav class="pager">
+                <% if (page > 1) { %><a class="btn btn-sm" href="<%= base %>/inventory/history<%= qs(page - 1) %>">← Newer</a><% } %>
+                <% if (hasMore) { %><a class="btn btn-sm" href="<%= base %>/inventory/history<%= qs(page + 1) %>">Older →</a><% } %>
+            </nav>
+        <% } %>
+    </div>
+</div>
+<%- include('partials/footer') %>

@@ -1,0 +1,31 @@
+<%- include('partials/header') %>
+<div class="wrap panel-page">
+    <div class="panel">
+        <% if (!invite) { %>
+            <span class="eyebrow">Invite</span>
+            <h1>This link doesn't work</h1>
+            <p class="sub">It has already been used, has expired or was cancelled. Ask the shop owner to send you a new one.</p>
+            <a href="/" class="btn btn-primary">Back to home</a>
+        <% } else { %>
+            <span class="eyebrow">You're invited</span>
+            <h1>Join <%= invite.shop_name %></h1>
+            <p class="sub">The owner of <strong><%= invite.shop_name %></strong> has invited you to help run their shop on PATA, with your own login.</p>
+            <div class="buyer-note">You'll be able to see the shop's inventory and: <strong><%= permSummary(perms) %></strong>.</div>
+            <% if (isOwner) { %>
+                <p class="hint">You own this shop, so you don't need to join it. Send this link to your employee instead.</p>
+                <a href="/listing/<%= invite.listing_id %>/team" class="btn btn-block">Back to your team</a>
+            <% } else if (user) { %>
+                <form method="post" action="/invite/<%= token %>">
+                    <button type="submit" class="btn btn-primary btn-block">Join as <%= user.firstName %></button>
+                </form>
+                <div class="alt">Not <%= user.firstName %>?
+                    <form action="/logout" method="post" class="inline"><button type="submit" class="linklike">Log out</button></form>
+                    and open this link again.</div>
+            <% } else { %>
+                <a href="/signup?next=<%= encodeURIComponent('/invite/' + token) %>" class="btn btn-primary btn-block">Create my account</a>
+                <p class="alt">Already have an account? <a href="/login?next=<%= encodeURIComponent('/invite/' + token) %>">Log in</a></p>
+            <% } %>
+        <% } %>
+    </div>
+</div>
+<%- include('partials/footer') %>
