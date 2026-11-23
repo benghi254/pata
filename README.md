@@ -66,6 +66,26 @@ in `data/pgdata`, so local work never touches live data. Delete that folder to s
   change (who, when, what changed, stock before → after) is kept in a history
   (`/listing/<id>/inventory/history`, also per item), even for deleted items. Both the catalogue and
   the history download as CSV. Only the shop's owner and their team can see any of this.
+- **Ratings**: buyers rate shops 1 to 5 stars with an optional comment. To keep ratings honest, a
+  buyer first confirms a Kenyan mobile number with a 6-digit SMS code (SIMs are ID-registered, so fake
+  duplicates cost real SIMs). Each confirmed phone can rate a shop once; rating again replaces it, and
+  the buyer can remove it. A shop's owner, its team and the shop's own phone / M-Pesa number cannot rate
+  it. Codes expire after 10 minutes, allow 5 tries, and are limited per phone (one a minute, 4 an hour)
+  and per network (10 an hour); only hashes of codes and network addresses are stored. Buyer phone numbers
+  are never shown. Shop pages show the average, a breakdown by stars and recent comments; listing cards
+  show the stars.
+  **SMS needs Africa's Talking settings** (`AT_USERNAME`, `AT_API_KEY`, optional `AT_SENDER_ID`). Without
+  them, local development prints codes to the console and shows them on the page, and production shows
+  "Rating shops is coming soon" instead of the form.
+- **Pickup orders**: shops can switch on "Accept pickup orders" (`/listing/<id>/orders`). Buyers who
+  confirmed their phone (the same SMS code as ratings) choose quantities of the shop's shown, in-stock
+  items, a pickup day and a time within its opening hours (from 15 minutes to 7 days ahead), and pay at
+  the shop. The shop accepts (the items come out of stock, recorded in the inventory history) or declines
+  with a reason, marks the order ready, and hands it over when the buyer shows their 4-digit pickup
+  code. Cancelling an accepted order, by the buyer or as "not collected", puts the stock back. The buyer
+  gets an SMS at each step and the shop gets one for each new order; buyers follow their orders at
+  `/orders`. A buyer can have at most 2 open orders at a shop and 5 in all; a shop's own people and
+  phone can't order from it. Team members need the new "Handle orders" permission.
 - **Team** (`/listing/<id>/team`): an owner can give employees their own logins. They create a
   one-time invite link (valid 7 days, shown once, shareable on WhatsApp); the employee opens it, signs
   up or logs in, and joins. For each person the owner ticks what they may do: update stock, add and
@@ -89,7 +109,14 @@ in `data/pgdata`, so local work never touches live data. Delete that folder to s
 - **In production, set `SITE_URL`** (e.g. `https://pata.co.ke`) so links in the sitemap and tags use
   your real domain, then submit `https://your-domain/sitemap.xml` in Google Search Console.
 
-Maps use [Leaflet](https://leafletjs.com) with OpenStreetMap tiles (no API key needed). OpenStreetMap's
+Maps use [Leaflet](https://leafletjs.com) with OpenStreetMap tiles (no API key needed).
+Sellers place their pin by using their phone's location (with its accuracy shown), by searching for a
+place or landmark, or by tapping the map; the map also follows the county, constituency and ward they
+choose, and taps from far out zoom in so the pin can be dragged onto the exact door. Place search uses
+OpenStreetMap's free [Nominatim](https://nominatim.org) service from the seller's browser, only when they
+ask and at most once a second, as its usage policy requires; on a busy site, switch to a paid geocoder.
+On shop pages buyers see the pin labelled with the shop's name, can show their own location and distance
+("How far am I?", which stays in their browser), get directions, and open the map full screen. OpenStreetMap's
 free tile server is for light use; on a busy site switch to another tile provider in `public/js/`.
 
 ## Project layout
@@ -104,6 +131,9 @@ auth.js        password hashing and the login guard
 hours.js       opening hours: form parsing, "open now", schema.org output
 inventory.js   shop catalogues: items, stock movements and the change history
 team.js        shop teams: invites, employee permissions and the access check on shop routes
+ratings.js     buyer ratings: SMS phone codes, limits, one rating per phone per shop
+orders.js      pickup orders: pickup times, placing, accept / ready / collected, stock
+sms.js         sending SMS through Africa's Talking (prints to the console locally)
 places.js      counties, constituencies and wards (places.json) for the place pickers
 seo.js         shop URLs, page descriptions and structured data
 categories.js  the list of categories and their groups - add a new one here
@@ -121,3 +151,5 @@ public/        CSS, images and the map scripts (js/)
 | `DATABASE_URL_UNPOOLED` | direct Neon URL, used only for migrations |
 | `SITE_URL`       | taken from the request; set it in production |
 | `TZ_SHOPS`       | `Africa/Nairobi` (time zone for "Open now") |
+| `AT_USERNAME`, `AT_API_KEY` | none: SMS codes for ratings. Africa's Talking app username and API key (`sandbox` to test) |
+| `AT_SENDER_ID`   | none: optional registered sender name for the SMS |

@@ -62,6 +62,7 @@
             <nav class="nav">
                 <a href="/">Browse</a>
                 <a href="/sell">Sell</a>
+                <% if (typeof buyerSession !== 'undefined' && buyerSession) { %><a href="/orders">My orders</a><% } %>
                 <% if (user) { %>
                     <a href="/my/listings">My shops</a>
                     <span class="hello">Hi, <strong><%= user.firstName %></strong></span>

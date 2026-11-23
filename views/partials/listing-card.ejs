@@ -6,6 +6,7 @@
         <div>
             <h2 class="h-card"><a href="<%= listingPath(l) %>" class="stretch"><%= l.shop_name %></a></h2>
             <div class="what"><%= l.title %><% if (typeof catName !== 'undefined' && catName) { %> · <%= catName %><% } %></div>
+            <% if (l.rating_count) { %><div class="card-rating"><%- include('stars', { value: l.rating_avg, size: 'sm' }) %> <b><%= l.rating_avg.toFixed(1) %></b> <span class="muted">(<%= l.rating_count %>)</span></div><% } %>
         </div>
     </div>
     <% if (st) { %>

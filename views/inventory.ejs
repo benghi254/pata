@@ -15,6 +15,7 @@
                 <a href="<%= base %>/inventory/history" class="btn btn-sm">History</a>
                 <a href="<%= base %>/inventory.csv" class="btn btn-sm">Export CSV</a>
             <% } %>
+            <% if (can.orders) { %><a href="<%= base %>/orders" class="btn btn-sm">Orders</a><% } %>
             <% if (can.role === 'owner') { %><a href="<%= base %>/team" class="btn btn-sm">Team</a><% } %>
         </div>
     </section>

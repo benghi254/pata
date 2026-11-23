@@ -1,5 +1,6 @@
 <%- include('partials/header') %>
-<% const hasPin = listing.latitude != null && listing.longitude != null; %>
+<% const hasPin = listing.latitude != null && listing.longitude != null;
+   const directionsUrl = 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(hasPin ? listing.latitude + ',' + listing.longitude : [listing.street, place(listing), 'Kenya'].join(', ')); %>
 <div class="wrap">
     <nav class="crumbs" aria-label="Breadcrumb">
         <a href="/">Home</a> <span>/</span>
@@ -13,9 +14,13 @@
             <span class="eyebrow"><%= category.name %></span>
             <h1><%= listing.shop_name %></h1>
             <p class="what"><%= listing.title %></p>
+            <% if (ratingSummary.count) { %>
+                <a href="#rate" class="rating-link"><%- include('partials/stars', { value: ratingSummary.average, size: '' }) %> <b><%= ratingSummary.average.toFixed(1) %></b> <span class="muted">(<%= ratingSummary.count %>)</span></a>
+            <% } %>
         </div>
         <% if (can) { %>
             <a href="/listing/<%= listing.id %>/inventory" class="btn btn-sm">Manage inventory</a>
+            <% if (can.orders) { %><a href="/listing/<%= listing.id %>/orders" class="btn btn-sm">Orders</a><% } %>
             <% if (can.shop) { %><a href="/listing/<%= listing.id %>/edit" class="btn btn-sm">Edit listing</a><% } %>
         <% } %>
         <% if (status) { %>
@@ -71,6 +76,8 @@
                 </div>
             <% } %>
 
+            <%- include('partials/order-form') %>
+
             <div class="card pad">
                 <h2 class="h-sm">Location</h2>
                 <address class="addr">
@@ -78,11 +85,28 @@
                     <span class="muted"><%= place(listing) %></span>
                 </address>
                 <% if (hasPin) { %>
-                    <div id="shop-map" class="map" data-lat="<%= listing.latitude %>" data-lng="<%= listing.longitude %>" data-name="<%= listing.shop_name %>"></div>
+                    <div class="map-wrap" id="shop-map-wrap">
+                        <div id="shop-map" class="map" data-lat="<%= listing.latitude %>" data-lng="<%= listing.longitude %>" data-name="<%= listing.shop_name %>" data-street="<%= listing.street %>"></div>
+                        <button type="button" class="btn btn-sm map-full-btn" id="map-full" aria-pressed="false">⛶ Full screen</button>
+                    </div>
+                    <div class="map-actions">
+                        <a class="btn btn-sm btn-primary" target="_blank" rel="noopener" href="<%= directionsUrl %>">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m3 11 19-9-9 19-2-8z"/></svg>
+                            Directions
+                        </a>
+                        <button type="button" class="btn btn-sm" id="show-me">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8"/></svg>
+                            How far am I?
+                        </button>
+                        <button type="button" class="btn btn-sm" id="recenter" hidden>Back to shop</button>
+                    </div>
+                    <p class="pin-status" id="map-status" aria-live="polite"></p>
                 <% } else { %>
                     <p class="hint">This seller hasn't pinned their shop on the map yet.</p>
                 <% } %>
             </div>
+
+            <%- include('partials/ratings') %>
         </div>
 
         <aside class="shop-side">
@@ -99,7 +123,7 @@
                     </a>
                 <% } %>
                 <a class="btn btn-block" target="_blank" rel="noopener"
-                   href="https://www.google.com/maps/dir/?api=1&destination=<%= encodeURIComponent(hasPin ? listing.latitude + ',' + listing.longitude : [listing.street, place(listing), 'Kenya'].join(', ')) %>">
+                   href="<%= directionsUrl %>">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m3 11 19-9-9 19-2-8z"/></svg>
                     Get directions
                 </a>
@@ -152,6 +176,6 @@
         </aside>
     </div>
 </div>
-<% if (hasPin) { %><script src="/js/listing-map.js" defer></script><% } %>
+<% if (hasPin) { %><script src="/js/map-common.js" defer></script><script src="/js/listing-map.js" defer></script><% } %>
 <% if (payment) { %><script src="/js/copy.js" defer></script><% } %>
 <%- include('partials/footer') %>

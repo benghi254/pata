@@ -10,6 +10,9 @@ const payments = require('./payments');
 const seo = require('./seo');
 const inventory = require('./inventory');
 const team = require('./team');
+const ratings = require('./ratings');
+const sms = require('./sms');
+const orders = require('./orders');
 const areas = require('./areas');
 const places = require('./places');
 const { hashPassword, verifyPassword, requireLogin } = require('./auth');
@@ -34,6 +37,7 @@ Object.assign(app.locals, {
   stockState: inventory.stockState,
   photoUrl: photos.url,
   places,
+  countyCentres: areas.COUNTIES.map((c) => [c.name, c.lat, c.lng]),
 });
 
 // On Vercel, files in public/ are served by the CDN; locally Express serves them.
@@ -67,11 +71,13 @@ app.use((req, res, next) => {
   res.locals.here = req.originalUrl;
   // One-time messages after a redirect, e.g. "Stock updated."
   res.locals.flash = req.session.flash || null;
+  res.locals.buyerSession = req.session.buyer || null; // a buyer who confirmed their phone (for My orders)
   if (req.session.flash) delete req.session.flash;
   next();
 });
 
-const flash = (req, type, text) => { req.session.flash = { type, text }; };
+// `where` says which part of a page shows it, when a page has several (e.g. 'order' on shop pages).
+const flash = (req, type, text, where) => { req.session.flash = { type, text, where }; };
 
 // Make sure the tables exist before the first query (once per cold start).
 app.use(async (req, res, next) => {
@@ -168,6 +174,10 @@ app.get('/category/:slug', async (req, res, next) => {
       [category.slug, ...f.params],
     );
   }
+  const listings = await ratings.attach(await db.query(
+    'SELECT * FROM listings WHERE category = ? ORDER BY created_at DESC, id DESC', [category.slug],
+  ));
+  const { siteUrl } = res.locals;
   res.render('category', {
     title: `${category.name} near you`,
     description: `${category.blurb} Find ${category.name.toLowerCase()} in your constituency on PATA, with locations, opening hours and phone numbers.`,
@@ -211,6 +221,16 @@ app.get('/search', async (req, res) => {
     const f = inArea(area);
     listings = await db.query(`SELECT *, ${photos.coverSql()} FROM listings WHERE ${text.sql} AND ${f.sql}
       ORDER BY created_at DESC, id DESC LIMIT ${MAX_RESULTS}`, [...text.params, ...f.params]);
+    listings = await ratings.attach(await findListings(words, area));
+    // Nothing here? Say how many each wider area would show, so widening is one click.
+    if (!listings.length) {
+      for (const a of widerAreas(area)) {
+        const n = (await findListings(words, a)).length;
+        wider.push({ url: searchUrl(q, a), label: describeArea(a), n });
+      }
+    } else {
+      wider = widerAreas(area).slice(0, 2).map((a) => ({ url: searchUrl(q, a), label: describeArea(a) }));
+    }
   }
   res.render('search', {
     title: q ? `Search: ${q}` : 'Search shops and services in your constituency',
@@ -443,7 +463,7 @@ app.get('/my/listings', requireLogin, async (req, res) => {
   `, [req.session.user.id]);
   // Shops where this user is on the team (an employee), with what they're allowed to do.
   const work = await db.query(`
-    SELECT l.*, m.can_stock, m.can_items, m.can_delete, m.can_reports, m.can_shop, u.first_name AS owner_name,
+    SELECT l.*, m.can_stock, m.can_orders, m.can_items, m.can_delete, m.can_reports, m.can_shop, u.first_name AS owner_name,
       (SELECT COUNT(*)::int FROM items i WHERE i.listing_id = l.id) AS item_count
     FROM listing_members m JOIN listings l ON l.id = m.listing_id JOIN users u ON u.id = l.user_id
     WHERE m.user_id = ? ORDER BY l.shop_name
@@ -453,6 +473,7 @@ app.get('/my/listings', requireLogin, async (req, res) => {
     noindex: true,
     listings,
     work: work.map((l) => ({ ...l, perms: team.permsFromRow(l) })),
+    newOrders: await orders.newCounts([...listings, ...work].map((l) => l.id)),
     permSummary: team.permSummary,
     categoryName: (slug) => (categoryBySlug(slug) || {}).name || slug,
     notice: { updated: 'Listing updated.', deleted: 'Listing deleted.', left: 'You have left that shop.' }[req.query.done] || null,
@@ -528,7 +549,7 @@ app.get('/listing/:id/inventory', requireLogin, shopAccess('view'), async (req, 
     filters: FILTERS,
     filter,
     q,
-    moves: inventory.MOVES,
+    moves: Object.fromEntries(Object.entries(inventory.MOVES).filter(([, m]) => !m.system)),
     actions: inventory.ACTIONS,
     permSummary: team.permSummary,
   });
@@ -740,6 +761,255 @@ app.post('/invite/:token', requireLogin, async (req, res) => {
   res.redirect(`/listing/${joined.listing_id}/inventory`);
 });
 
+// ---------- Pickup orders: verified buyers order from a shop's catalogue and collect later ----------
+
+// What the shop page needs for its "Order for pickup" section.
+async function orderView(req, listing) {
+  const buyer = req.session.buyer || null;
+  const draft = req.session.orderDraft && req.session.orderDraft.listingId === listing.id ? req.session.orderDraft : null;
+  if (draft) delete req.session.orderDraft;
+  return {
+    orderItems: listing.accept_orders ? await orders.orderableItems(listing.id) : [],
+    orderBlocked: listing.accept_orders ? await orders.blockedReason(listing, req.session.user, buyer) : null,
+    pickupDays: orders.pickupDays(hours.parse(listing.hours)),
+    orderDraft: draft || {},
+    ordersOn: sms.available(),
+  };
+}
+
+const orderPath = (o) => `/orders/${o.id}`;
+
+app.post('/listing/:id/orders', async (req, res, next) => {
+  const listing = await db.one('SELECT * FROM listings WHERE id = ?', [Number(req.params.id) || 0]);
+  if (!listing) return next();
+  const back = `${seo.listingPath(listing)}#order`;
+  const buyer = req.session.buyer;
+  // Keep what they typed, so a mistake doesn't wipe the order form.
+  const keepDraft = () => {
+    req.session.orderDraft = {
+      listingId: listing.id,
+      qty: Object.fromEntries(Object.entries(req.body).filter(([k]) => /^qty_\d+$/.test(k)).map(([k, v]) => [k, String(v).slice(0, 3)])),
+      day: trim(req.body.day), time: trim(req.body.time), name: trim(req.body.name).slice(0, 40), note: trim(req.body.note).slice(0, 300),
+    };
+  };
+  if (!buyer || !(await db.one('SELECT 1 FROM buyers WHERE id = ?', [buyer.id]))) {
+    if (buyer) delete req.session.buyer;
+    keepDraft();
+    flash(req, 'bad', 'Confirm your phone number first, then place your order.', 'order');
+    return res.redirect(back);
+  }
+  const blocked = await orders.blockedReason(listing, req.session.user, buyer);
+  if (blocked) { flash(req, 'bad', blocked, 'order'); return res.redirect(back); }
+
+  const { lines, errors } = orders.readLines(req.body, await orders.orderableItems(listing.id));
+  const pickup = orders.readPickup(hours.parse(listing.hours), trim(req.body.day), trim(req.body.time));
+  if (pickup.error) errors.push(pickup.error);
+  const name = trim(req.body.name).slice(0, 40);
+  if (!name) errors.push('Enter your name, so the shop knows who is collecting.');
+  if (errors.length) { keepDraft(); flash(req, 'bad', errors.join(' '), 'order'); return res.redirect(back); }
+
+  const placed = await orders.place(listing, buyer, { lines, name, note: trim(req.body.note).slice(0, 300), at: pickup.at });
+  if (placed.error) { keepDraft(); flash(req, 'bad', placed.error, 'order'); return res.redirect(back); }
+  flash(req, 'ok', 'Order sent! We will text you when the shop accepts it.');
+  res.redirect(orderPath(placed.order));
+});
+
+// The buyer's own orders (found by their confirmed phone).
+app.get('/orders', async (req, res) => {
+  const buyer = req.session.buyer;
+  res.render('buyer-orders', {
+    title: 'My orders', noindex: true,
+    list: buyer ? await orders.forBuyer(buyer.id) : [],
+    buyer: buyer && { ...buyer, masked: ratings.maskPhone(buyer.phone) },
+    statuses: orders.STATUS, fmtWhen: orders.fmtWhen, ordersOn: sms.available(),
+  });
+});
+
+async function buyerOrder(req, res, next) {
+  const buyer = req.session.buyer;
+  const order = buyer && await db.one('SELECT * FROM orders WHERE id = ? AND buyer_id = ?', [Number(req.params.orderId) || 0, buyer.id]);
+  if (!order) {
+    return res.status(404).render('message', { title: 'Order not found', noindex: true,
+      message: 'We could not find that order. Open My orders and confirm the phone number you ordered with.' });
+  }
+  res.locals.order = order;
+  res.locals.shop = await db.one('SELECT * FROM listings WHERE id = ?', [order.listing_id]);
+  next();
+}
+
+app.get('/orders/:orderId', buyerOrder, async (req, res) => {
+  const { order, shop } = res.locals;
+  res.render('buyer-order', {
+    title: `Order #${order.id}`, noindex: true,
+    items: await orders.itemsOf(order.id), statuses: orders.STATUS, fmtWhen: orders.fmtWhen,
+    canCancel: orders.ACTIONS.cancel.from.includes(order.status),
+    directionsUrl: 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(shop.latitude != null
+      ? `${shop.latitude},${shop.longitude}` : [shop.street, seo.place(shop), 'Kenya'].join(', ')),
+  });
+});
+
+app.post('/orders/:orderId/cancel', buyerOrder, async (req, res) => {
+  const { order, shop } = res.locals;
+  const r = await orders.act(order, 'cancel', { by: 'buyer', listing: shop, reason: 'Cancelled by the buyer' });
+  flash(req, r.error ? 'bad' : 'ok', r.error || 'Your order is cancelled.');
+  res.redirect(orderPath(order));
+});
+
+// The shop's orders, for the owner and team members who handle orders.
+app.get('/listing/:id/orders', requireLogin, shopAccess('orders'), async (req, res) => {
+  const { listing } = res.locals;
+  const show = req.query.show === 'done' ? 'done' : 'open';
+  res.render('shop-orders', {
+    title: `Orders · ${listing.shop_name}`, noindex: true, show,
+    list: await orders.forShop(listing.id, show === 'open'),
+    counts: await db.one(`SELECT COUNT(*) FILTER (WHERE status = ANY(?::text[]))::int AS open,
+      COUNT(*) FILTER (WHERE status = 'pending')::int AS pending FROM orders WHERE listing_id = ?`, [orders.OPEN, listing.id]),
+    orderableCount: (await orders.orderableItems(listing.id)).length,
+    statuses: orders.STATUS, fmtWhen: orders.fmtWhen, ordersOn: sms.available(),
+    hasHours: Boolean(orders.pickupDays(hours.parse(listing.hours)).length),
+  });
+});
+
+app.post('/listing/:id/orders/setting', requireLogin, shopAccess('shop'), async (req, res) => {
+  const { listing } = res.locals;
+  const on = req.body.accept === '1';
+  await db.query('UPDATE listings SET accept_orders = ? WHERE id = ?', [on, listing.id]);
+  flash(req, 'ok', on ? 'Pickup orders are on. Buyers can now order from your shop page.' : 'Pickup orders are off. Open orders still need handling.');
+  res.redirect(`/listing/${listing.id}/orders`);
+});
+
+app.post('/listing/:id/orders/:orderId/:action', requireLogin, shopAccess('orders'), async (req, res) => {
+  const { listing } = res.locals;
+  const back = `/listing/${listing.id}/orders${req.body.show === 'done' ? '?show=done' : ''}#order-${req.params.orderId}`;
+  const order = await db.one('SELECT * FROM orders WHERE id = ? AND listing_id = ?', [Number(req.params.orderId) || 0, listing.id]);
+  if (!order) { flash(req, 'bad', 'That order is not at this shop.'); return res.redirect(back); }
+  const r = await orders.act(order, req.params.action, {
+    by: 'shop', userId: req.session.user.id, listing, reason: req.body.reason, code: req.body.code, skipCode: req.body.skipCode === 'on',
+  });
+  const done = { accept: 'accepted, stock taken', decline: 'declined', ready: 'marked ready', collected: 'collected', notcollected: 'cancelled, stock returned' };
+  const texted = req.params.action !== 'collected' && sms.available() ? ' The buyer gets an SMS.' : '';
+  flash(req, r.error ? 'bad' : 'ok', r.error || `Order #${order.id} ${done[req.params.action]}.${texted}`);
+  res.redirect(back);
+});
+
+// ---------- Ratings: buyers prove a phone with an SMS code, then rate a shop once ----------
+
+// What the shop page needs to show ratings and the rating form.
+async function ratingView(req, listing) {
+  const buyer = req.session.buyer || null;
+  return {
+    ratingSummary: await ratings.summary(listing.id),
+    ratingList: await ratings.recent(listing.id),
+    myRating: buyer ? await ratings.myRating(listing.id, buyer.id) : null,
+    rateBlocked: await ratings.blockedReason(listing, req.session.user, buyer),
+    buyer: buyer && { ...buyer, masked: ratings.maskPhone(buyer.phone) },
+    ratingsOn: sms.available(),
+  };
+}
+
+const rateNext = (req) => safeNext((req.body && req.body.next) || req.query.next, '/');
+const withHash = (url) => (url.includes('#') ? url : `${url}#rate`);
+
+// Step 1: the buyer gives a phone number and we text a code.
+app.post('/rate/phone', async (req, res) => {
+  const next = rateNext(req);
+  const where = next.endsWith('#order') ? 'order' : undefined;
+  const phone = ratings.readPhone(req.body.phone);
+  if (!phone) {
+    flash(req, 'bad', 'Enter a Kenyan mobile number, e.g. 0712 345678.', where);
+    return res.redirect(withHash(next));
+  }
+  const sent = await ratings.sendCode(phone, req.ip);
+  if (sent.error && !sent.wait) {
+    flash(req, 'bad', sent.error, where);
+    return res.redirect(withHash(next));
+  }
+  req.session.pendingPhone = phone;
+  if (sent.devCode) req.session.devCode = sent.devCode;
+  if (sent.error) flash(req, 'bad', sent.error, where);
+  res.redirect(`/rate/verify?next=${encodeURIComponent(next)}`);
+});
+
+function renderVerify(req, res, error, status = 200) {
+  const devCode = req.session.devCode || null;
+  delete req.session.devCode;
+  res.status(status).render('rate-verify', {
+    title: 'Confirm your phone', noindex: true, error,
+    phone: ratings.maskPhone(req.session.pendingPhone), next: rateNext(req), devCode, minutes: ratings.CODE_MINUTES,
+  });
+}
+
+// Step 2: the buyer types the code.
+app.get('/rate/verify', (req, res) => {
+  if (!req.session.pendingPhone) return res.redirect(withHash(rateNext(req)));
+  renderVerify(req, res, null);
+});
+
+app.post('/rate/verify', async (req, res) => {
+  const phone = req.session.pendingPhone;
+  if (!phone) return res.redirect(withHash(rateNext(req)));
+  const result = await ratings.checkCode(phone, req.body.code);
+  if (result.error) return renderVerify(req, res, result.error, 400);
+  delete req.session.pendingPhone;
+  req.session.buyer = { id: result.buyer.id, phone: result.buyer.phone };
+  flash(req, 'ok', 'Phone confirmed. You can now rate shops and place pickup orders on PATA.', rateNext(req).endsWith('#order') ? 'order' : undefined);
+  res.redirect(withHash(rateNext(req)));
+});
+
+app.post('/rate/resend', async (req, res) => {
+  const phone = req.session.pendingPhone;
+  if (!phone) return res.redirect(withHash(rateNext(req)));
+  const sent = await ratings.sendCode(phone, req.ip);
+  if (sent.devCode) req.session.devCode = sent.devCode;
+  flash(req, sent.error ? 'bad' : 'ok', sent.error || 'We sent a new code.');
+  res.redirect(`/rate/verify?next=${encodeURIComponent(rateNext(req))}`);
+});
+
+app.post('/rate/sign-out', (req, res) => {
+  delete req.session.buyer;
+  delete req.session.pendingPhone;
+  res.redirect(withHash(rateNext(req)));
+});
+
+// Step 3: rate (or re-rate) the shop. One rating per verified phone per shop.
+app.post('/listing/:id/rate', async (req, res, next) => {
+  const listing = await db.one('SELECT * FROM listings WHERE id = ?', [Number(req.params.id) || 0]);
+  if (!listing) return next();
+  const back = `${seo.listingPath(listing)}#rate`;
+  const buyer = req.session.buyer;
+  if (!buyer) {
+    flash(req, 'bad', 'Confirm your phone number first, then rate.');
+    return res.redirect(back);
+  }
+  // The buyer may have been removed since signing in (e.g. data cleanup): sign them out.
+  if (!(await db.one('SELECT 1 FROM buyers WHERE id = ?', [buyer.id]))) {
+    delete req.session.buyer;
+    flash(req, 'bad', 'Please confirm your phone number again.');
+    return res.redirect(back);
+  }
+  const blocked = await ratings.blockedReason(listing, req.session.user, buyer);
+  if (blocked) {
+    flash(req, 'bad', blocked);
+    return res.redirect(back);
+  }
+  const r = ratings.readRating(req.body);
+  if (r.errors.length) {
+    flash(req, 'bad', r.errors.join(' '));
+    return res.redirect(back);
+  }
+  const saved = await ratings.saveRating(listing.id, buyer.id, r);
+  flash(req, 'ok', saved.created ? 'Thank you! Your rating is posted.' : 'Your rating is updated.');
+  res.redirect(back);
+});
+
+app.post('/listing/:id/rate/delete', async (req, res, next) => {
+  const listing = await db.one('SELECT * FROM listings WHERE id = ?', [Number(req.params.id) || 0]);
+  if (!listing) return next();
+  if (req.session.buyer) await ratings.deleteRating(listing.id, req.session.buyer.id);
+  flash(req, 'ok', 'Your rating is removed.');
+  res.redirect(`${seo.listingPath(listing)}#rate`);
+});
+
 // Public shop page. Registered after /listing/:id/edit so "edit" is never read as a slug.
 app.get('/listing/:id{/:slug}', async (req, res, next) => {
   const listing = await db.one('SELECT * FROM listings WHERE id = ?', [Number(req.params.id) || 0]);
@@ -773,6 +1043,8 @@ app.get('/listing/:id{/:slug}', async (req, res, next) => {
     itemPhotos: await photos.byItem(listing.id),
     payment: payments.forListing(listing),
     can: await team.access(listing, req.session.user && req.session.user.id),
+    ...(await ratingView(req, listing)),
+    ...(await orderView(req, listing)),
   });
 });
 
@@ -801,6 +1073,8 @@ app.get('/robots.txt', (req, res) => {
     'Disallow: /sell/',
     'Disallow: /invite/',
     'Disallow: /area',
+    'Disallow: /rate/',
+    'Disallow: /orders',
     '',
     `Sitemap: ${res.locals.siteUrl}/sitemap.xml`,
     '',

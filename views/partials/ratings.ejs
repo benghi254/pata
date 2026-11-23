@@ -1,0 +1,88 @@
+<%# The shop page's ratings: summary, the buyer's own form, and recent ratings.
+    Locals come from ratingView() in server.js. %>
+<% const s = ratingSummary; const here = listingPath(listing); %>
+<section class="card pad ratings" id="rate">
+    <h2 class="h-sm">Ratings</h2>
+    <% if (flash && flash.where !== 'order') { %><p class="notice <%= flash.type === 'bad' ? 'bad' : '' %>" role="status"><%= flash.text %></p><% } %>
+
+    <% if (s.count) { %>
+        <div class="rating-summary">
+            <div class="rating-big">
+                <b><%= s.average.toFixed(1) %></b>
+                <%- include('stars', { value: s.average, size: 'lg' }) %>
+                <span class="muted"><%= s.count %> rating<%= s.count === 1 ? '' : 's' %> from verified buyers</span>
+            </div>
+            <ol class="rating-bars" aria-label="Ratings by stars">
+                <% [5, 4, 3, 2, 1].forEach(function (n) { const pc = s.count ? Math.round(s.counts[n] / s.count * 100) : 0; %>
+                    <li><span><%= n %> ★</span><span class="bar"><span style="width: <%= pc %>%"></span></span><span class="muted"><%= s.counts[n] %></span></li>
+                <% }) %>
+            </ol>
+        </div>
+    <% } else { %>
+        <p class="hint">No ratings yet. Bought from <%= listing.shop_name %>? Be the first to rate it.</p>
+    <% } %>
+
+    <div class="rate-box">
+        <% if (rateBlocked) { %>
+            <p class="hint"><%= rateBlocked %></p>
+        <% } else if (!ratingsOn) { %>
+            <p class="hint">Rating shops is coming soon.</p>
+        <% } else if (!buyer) { %>
+            <h3 class="rate-title">Rate this shop</h3>
+            <p class="hint">To keep ratings honest, each person can rate a shop once. Confirm your phone number with a free SMS code; it is never shown to anyone.</p>
+            <form method="post" action="/rate/phone" class="rate-phone">
+                <input type="hidden" name="next" value="<%= here %>">
+                <label for="rate-phone" class="visually-hidden">Your phone number</label>
+                <input id="rate-phone" type="tel" name="phone" placeholder="Your phone, e.g. 0712 345678" autocomplete="tel" inputmode="tel" required>
+                <button type="submit" class="btn btn-primary">Send code</button>
+            </form>
+        <% } else { %>
+            <h3 class="rate-title"><%= myRating ? 'Your rating' : 'Rate this shop' %></h3>
+            <form method="post" action="/listing/<%= listing.id %>/rate" class="rate-form">
+                <fieldset class="star-pick">
+                    <legend class="visually-hidden">Stars</legend>
+                    <% [5, 4, 3, 2, 1].forEach(function (n) { %>
+                        <input type="radio" id="star-<%= n %>" name="stars" value="<%= n %>" <%= myRating && myRating.stars === n ? 'checked' : '' %> required>
+                        <label for="star-<%= n %>" title="<%= n %> star<%= n === 1 ? '' : 's' %>">★<span class="visually-hidden"><%= n %> star<%= n === 1 ? '' : 's' %></span></label>
+                    <% }) %>
+                </fieldset>
+                <div class="field">
+                    <label for="comment">What was it like? <span class="opt">(optional)</span></label>
+                    <textarea id="comment" name="comment" rows="3" maxlength="500" placeholder="Service, quality, prices…"><%= myRating ? myRating.comment : '' %></textarea>
+                </div>
+                <div class="field">
+                    <label for="displayName">Name to show <span class="opt">(optional, e.g. "Wanjiku")</span></label>
+                    <input id="displayName" name="displayName" maxlength="40" value="<%= myRating ? myRating.display_name : '' %>">
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary"><%= myRating ? 'Update my rating' : 'Post rating' %></button>
+                </div>
+            </form>
+            <div class="rate-foot muted">
+                Confirmed as <%= buyer.masked %>.
+                <% if (myRating) { %>
+                    <form method="post" action="/listing/<%= listing.id %>/rate/delete" class="inline"><button type="submit" class="linklike">Remove my rating</button></form> ·
+                <% } %>
+                <form method="post" action="/rate/sign-out" class="inline">
+                    <input type="hidden" name="next" value="<%= here %>">
+                    <button type="submit" class="linklike">Not your number?</button>
+                </form>
+            </div>
+        <% } %>
+    </div>
+
+    <% if (ratingList.length) { %>
+        <ol class="rating-list">
+            <% ratingList.forEach(function (r) { const when = new Date(r.updated_at || r.created_at); %>
+                <li>
+                    <div class="rating-top">
+                        <%- include('stars', { value: r.stars, size: 'sm' }) %>
+                        <strong><%= r.display_name || 'Verified buyer' %></strong>
+                        <time class="muted" datetime="<%= when.toISOString() %>"><%= when.toLocaleDateString('en-KE', { timeZone: 'Africa/Nairobi', dateStyle: 'medium' }) %></time>
+                    </div>
+                    <% if (r.comment) { %><p><%= r.comment %></p><% } %>
+                </li>
+            <% }) %>
+        </ol>
+    <% } %>
+</section>

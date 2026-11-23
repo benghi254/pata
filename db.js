@@ -133,6 +133,82 @@ const SCHEMA = `
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
   );
   CREATE INDEX IF NOT EXISTS photos_owner ON photos(listing_id, item_id, position);
+  -- Buyers who proved a phone number with an SMS code. One phone = one buyer, so one
+  -- person can't rate a shop many times. phone is 07XXXXXXXX / 01XXXXXXXX.
+  CREATE TABLE IF NOT EXISTS buyers (
+    id           SERIAL PRIMARY KEY,
+    phone        TEXT NOT NULL UNIQUE,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    verified_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+
+  -- SMS codes sent to prove a phone. Only a hash of each code is kept. ip_hash limits how many
+  -- codes one network can request (the raw address is not stored).
+  CREATE TABLE IF NOT EXISTS phone_codes (
+    id          SERIAL PRIMARY KEY,
+    phone       TEXT NOT NULL,
+    code_hash   TEXT NOT NULL,
+    ip_hash     TEXT NOT NULL DEFAULT '',
+    attempts    INTEGER NOT NULL DEFAULT 0,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at  TIMESTAMPTZ NOT NULL,
+    used_at     TIMESTAMPTZ
+  );
+  CREATE INDEX IF NOT EXISTS phone_codes_phone ON phone_codes(phone, created_at DESC);
+  CREATE INDEX IF NOT EXISTS phone_codes_ip ON phone_codes(ip_hash, created_at DESC);
+
+  -- One rating per verified buyer per shop; rating again replaces it.
+  CREATE TABLE IF NOT EXISTS ratings (
+    listing_id    INTEGER NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+    buyer_id      INTEGER NOT NULL REFERENCES buyers(id) ON DELETE CASCADE,
+    stars         INTEGER NOT NULL CHECK (stars BETWEEN 1 AND 5),
+    comment       TEXT NOT NULL DEFAULT '',
+    display_name  TEXT NOT NULL DEFAULT '',
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ,
+    PRIMARY KEY (listing_id, buyer_id)
+  );
+  CREATE INDEX IF NOT EXISTS ratings_listing ON ratings(listing_id, created_at DESC);
+
+  -- Pickup orders: a verified buyer orders items from a shop's catalogue and collects them later.
+  -- Shops opt in with accept_orders; team members need can_orders to handle them.
+  ALTER TABLE listings ADD COLUMN IF NOT EXISTS accept_orders BOOLEAN NOT NULL DEFAULT false;
+  ALTER TABLE listing_members ADD COLUMN IF NOT EXISTS can_orders BOOLEAN NOT NULL DEFAULT false;
+  ALTER TABLE listing_invites ADD COLUMN IF NOT EXISTS can_orders BOOLEAN NOT NULL DEFAULT false;
+
+  -- status: pending -> accepted -> ready -> collected, or declined / cancelled.
+  -- stock_taken: the items were taken out of stock (on accept) and must go back if it's cancelled.
+  CREATE TABLE IF NOT EXISTS orders (
+    id            SERIAL PRIMARY KEY,
+    listing_id    INTEGER NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+    buyer_id      INTEGER NOT NULL REFERENCES buyers(id) ON DELETE CASCADE,
+    buyer_name    TEXT NOT NULL DEFAULT '',
+    status        TEXT NOT NULL DEFAULT 'pending'
+                  CHECK (status IN ('pending', 'accepted', 'ready', 'collected', 'declined', 'cancelled')),
+    pickup_at     TIMESTAMPTZ NOT NULL,
+    note          TEXT NOT NULL DEFAULT '',
+    pickup_code   TEXT NOT NULL,
+    total         NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    has_unpriced  BOOLEAN NOT NULL DEFAULT false,
+    stock_taken   BOOLEAN NOT NULL DEFAULT false,
+    reason        TEXT NOT NULL DEFAULT '',
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ,
+    handled_by    INTEGER REFERENCES users(id) ON DELETE SET NULL
+  );
+  CREATE INDEX IF NOT EXISTS orders_listing ON orders(listing_id, status, pickup_at);
+  CREATE INDEX IF NOT EXISTS orders_buyer ON orders(buyer_id, created_at DESC);
+
+  -- What was ordered, with the name and price at the time (items can change or be deleted later).
+  CREATE TABLE IF NOT EXISTS order_items (
+    order_id  INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    item_id   INTEGER REFERENCES items(id) ON DELETE SET NULL,
+    name      TEXT NOT NULL,
+    unit      TEXT NOT NULL DEFAULT '',
+    price     NUMERIC(12, 2),
+    quantity  INTEGER NOT NULL CHECK (quantity BETWEEN 1 AND 99)
+  );
+  CREATE INDEX IF NOT EXISTS order_items_order ON order_items(order_id);
 `;
 
 // Neon URLs say sslmode=require; pin the strict certificate check pg uses today
