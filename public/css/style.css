@@ -756,3 +756,33 @@ section[id] { scroll-margin-top: 90px; }
   .catalogue li { flex-direction: column; align-items: flex-start; }
   .catalogue .cat-right { justify-content: flex-start; }
 }
+
+/* ---------- Team (employees with their own logins) ---------- */
+
+.inv-grid.solo { grid-template-columns: 1fr; }
+.team-grid { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 20px; align-items: start; }
+.team-main { display: flex; flex-direction: column; gap: 20px; }
+.member { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-top: 1px solid var(--border); }
+.member:first-of-type, .h-sm + .member { border-top: none; }
+.member .info { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.member .avatar { width: 40px; height: 40px; font-size: 16px; border-radius: 12px; }
+details.member { display: block; }
+details.member summary { display: flex; align-items: center; gap: 14px; cursor: pointer; list-style: none; }
+details.member summary::-webkit-details-marker { display: none; }
+details.member[open] summary .btn { color: var(--accent); border-color: var(--border-hi); }
+details.member .perm-form { margin: 14px 0 10px; }
+.perm-sum { font-size: 13px; color: var(--accent-2); font-weight: 600; }
+.perm { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; margin-bottom: 8px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); cursor: pointer; }
+.perm input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--violet); flex: none; }
+.perm span { display: flex; flex-direction: column; font-size: 14px; }
+.perm small { color: var(--muted); font-size: 12px; }
+.presets { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.invite-new { margin-bottom: 20px; border-color: var(--ok-border); background: var(--ok-bg); }
+.copy-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.copy-row input { flex: 1 1 260px; width: auto; font-size: 14px; }
+.work { margin-top: 40px; }
+.panel .alt .linklike { color: var(--accent); font-weight: 600; padding: 0; }
+
+@media (max-width: 960px) {
+  .team-grid { grid-template-columns: 1fr; }
+}

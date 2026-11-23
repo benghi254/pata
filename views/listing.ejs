@@ -14,9 +14,9 @@
             <h1><%= listing.shop_name %></h1>
             <p class="what"><%= listing.title %></p>
         </div>
-        <% if (isOwner) { %>
+        <% if (can) { %>
             <a href="/listing/<%= listing.id %>/inventory" class="btn btn-sm">Manage inventory</a>
-            <a href="/listing/<%= listing.id %>/edit" class="btn btn-sm">Edit listing</a>
+            <% if (can.shop) { %><a href="/listing/<%= listing.id %>/edit" class="btn btn-sm">Edit listing</a><% } %>
         <% } %>
         <% if (status) { %>
             <span class="status <%= status.isOpen ? 'open' : 'closed' %>"><%= status.label %></span>
@@ -51,7 +51,7 @@
                     </ul>
                     <p class="hint">Prices and stock are kept up to date by the seller. Call to confirm.</p>
                 </div>
-            <% } else if (isOwner) { %>
+            <% } else if (can && can.items) { %>
                 <div class="card pad">
                     <h2 class="h-sm">Products &amp; prices</h2>
                     <p class="hint">Only you can see this. Add your products, prices and stock so buyers know what you have.</p>

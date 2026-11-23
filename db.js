@@ -79,6 +79,42 @@ const SCHEMA = `
   );
   CREATE INDEX IF NOT EXISTS item_changes_listing ON item_changes(listing_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS item_changes_item ON item_changes(item_id);
+
+  -- People who help run a shop besides its owner (listings.user_id), and what each may do.
+  -- Everyone listed here can see the shop's inventory; the can_* columns allow more.
+  CREATE TABLE IF NOT EXISTS listing_members (
+    listing_id   INTEGER NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+    user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    can_stock    BOOLEAN NOT NULL DEFAULT true,
+    can_items    BOOLEAN NOT NULL DEFAULT false,
+    can_delete   BOOLEAN NOT NULL DEFAULT false,
+    can_reports  BOOLEAN NOT NULL DEFAULT false,
+    can_shop     BOOLEAN NOT NULL DEFAULT false,
+    added_by     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at   TIMESTAMPTZ,
+    PRIMARY KEY (listing_id, user_id)
+  );
+  CREATE INDEX IF NOT EXISTS listing_members_user ON listing_members(user_id);
+
+  -- One-time invite links an owner shares with an employee. Only a hash of the token is kept.
+  CREATE TABLE IF NOT EXISTS listing_invites (
+    id           SERIAL PRIMARY KEY,
+    listing_id   INTEGER NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+    token_hash   TEXT NOT NULL UNIQUE,
+    label        TEXT NOT NULL DEFAULT '',
+    can_stock    BOOLEAN NOT NULL DEFAULT true,
+    can_items    BOOLEAN NOT NULL DEFAULT false,
+    can_delete   BOOLEAN NOT NULL DEFAULT false,
+    can_reports  BOOLEAN NOT NULL DEFAULT false,
+    can_shop     BOOLEAN NOT NULL DEFAULT false,
+    created_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at   TIMESTAMPTZ NOT NULL,
+    used_by      INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    used_at      TIMESTAMPTZ
+  );
+  CREATE INDEX IF NOT EXISTS listing_invites_listing ON listing_invites(listing_id);
 `;
 
 // Neon URLs say sslmode=require; pin the strict certificate check pg uses today

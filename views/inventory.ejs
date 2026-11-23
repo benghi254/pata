@@ -9,19 +9,25 @@
             <p>Your catalogue: prices, stock and everything that changed. Buyers see the items you show on your shop page.</p>
         </div>
         <div class="head-actions">
-            <a href="<%= base %>/items/new" class="btn btn-primary btn-sm">+ Add item</a>
+            <% if (can.items) { %><a href="<%= base %>/items/new" class="btn btn-primary btn-sm">+ Add item</a><% } %>
             <a href="<%= listingPath(listing) %>" class="btn btn-sm">View shop</a>
-            <a href="<%= base %>/inventory/history" class="btn btn-sm">History</a>
-            <a href="<%= base %>/inventory.csv" class="btn btn-sm">Export CSV</a>
+            <% if (can.reports) { %>
+                <a href="<%= base %>/inventory/history" class="btn btn-sm">History</a>
+                <a href="<%= base %>/inventory.csv" class="btn btn-sm">Export CSV</a>
+            <% } %>
+            <% if (can.role === 'owner') { %><a href="<%= base %>/team" class="btn btn-sm">Team</a><% } %>
         </div>
     </section>
 
+    <% if (can.role !== 'owner') { %>
+        <p class="buyer-note">You help run this shop. You can: <strong><%= permSummary(can) %></strong>. Ask the owner if you need more.</p>
+    <% } %>
     <% if (flash) { %><p class="notice <%= flash.type === 'bad' ? 'bad' : '' %>" role="status"><%= flash.text %></p><% } %>
 
     <div class="inv-stats">
         <div class="stat"><b><%= summary.items %></b><span>Items</span></div>
         <div class="stat"><b><%= summary.units.toLocaleString('en-KE') %></b><span>Units in stock</span></div>
-        <div class="stat"><b><%= kes(summary.value) %></b><span>Stock value</span></div>
+        <% if (can.reports) { %><div class="stat"><b><%= kes(summary.value) %></b><span>Stock value</span></div><% } %>
         <a class="stat <%= summary.low ? 'is-warn' : '' %>" href="<%= base %>/inventory?show=low"><b><%= summary.low %></b><span>Low stock</span></a>
         <a class="stat <%= summary.out ? 'is-bad' : '' %>" href="<%= base %>/inventory?show=out"><b><%= summary.out %></b><span>Out of stock</span></a>
     </div>
@@ -29,11 +35,15 @@
     <% if (!summary.items) { %>
         <div class="empty">
             <h2>Your catalogue is empty</h2>
-            <p>Add the products or services you sell, with prices and how many you have. You can update stock any time, from your phone.</p>
-            <a href="<%= base %>/items/new" class="btn btn-primary">Add your first item</a>
+            <% if (can.items) { %>
+                <p>Add the products or services you sell, with prices and how many you have. You can update stock any time, from your phone.</p>
+                <a href="<%= base %>/items/new" class="btn btn-primary">Add your first item</a>
+            <% } else { %>
+                <p>No items have been added yet.</p>
+            <% } %>
         </div>
     <% } else { %>
-        <div class="inv-grid">
+        <div class="inv-grid <%= can.reports ? '' : 'solo' %>">
             <div>
                 <div class="inv-toolbar">
                     <nav class="filters" aria-label="Filter items">
@@ -70,7 +80,7 @@
                                 <% } %>
                             </div>
 
-                            <% if (i.quantity != null) { %>
+                            <% if (i.quantity != null && can.stock) { %>
                                 <div class="inv-stock">
                                     <form method="post" action="<%= base %>/items/<%= i.id %>/stock" class="quick">
                                         <input type="hidden" name="next" value="<%= here %>#item-<%= i.id %>">
@@ -99,23 +109,30 @@
                                 </div>
                             <% } %>
 
+                            <% if (can.items || can.reports || can.delete) { %>
                             <div class="inv-actions">
-                                <a class="btn btn-sm" href="<%= base %>/items/<%= i.id %>/edit">Edit</a>
-                                <form method="post" action="<%= base %>/items/<%= i.id %>/visibility" class="inline">
-                                    <input type="hidden" name="next" value="<%= here %>#item-<%= i.id %>">
-                                    <input type="hidden" name="visible" value="<%= i.visible ? '0' : '1' %>">
-                                    <button class="btn btn-sm" type="submit"><%= i.visible ? 'Hide' : 'Show' %></button>
-                                </form>
-                                <a class="btn btn-sm" href="<%= base %>/inventory/history?item=<%= i.id %>">History</a>
-                                <form method="post" action="<%= base %>/items/<%= i.id %>/delete" class="inline confirm-delete" data-name="<%= i.name %>">
-                                    <button class="btn btn-sm btn-danger" type="submit">Delete</button>
-                                </form>
+                                <% if (can.items) { %>
+                                    <a class="btn btn-sm" href="<%= base %>/items/<%= i.id %>/edit">Edit</a>
+                                    <form method="post" action="<%= base %>/items/<%= i.id %>/visibility" class="inline">
+                                        <input type="hidden" name="next" value="<%= here %>#item-<%= i.id %>">
+                                        <input type="hidden" name="visible" value="<%= i.visible ? '0' : '1' %>">
+                                        <button class="btn btn-sm" type="submit"><%= i.visible ? 'Hide' : 'Show' %></button>
+                                    </form>
+                                <% } %>
+                                <% if (can.reports) { %><a class="btn btn-sm" href="<%= base %>/inventory/history?item=<%= i.id %>">History</a><% } %>
+                                <% if (can.delete) { %>
+                                    <form method="post" action="<%= base %>/items/<%= i.id %>/delete" class="inline confirm-delete" data-name="<%= i.name %>">
+                                        <button class="btn btn-sm btn-danger" type="submit">Delete</button>
+                                    </form>
+                                <% } %>
                             </div>
+                            <% } %>
                         </article>
                     <% }) %>
                 </div>
             </div>
 
+            <% if (can.reports) { %>
             <aside class="card pad inv-recent">
                 <h2 class="h-sm">Recent changes</h2>
                 <% if (!recent.length) { %><p class="hint">Nothing yet.</p><% } %>
@@ -126,6 +143,7 @@
                 </ol>
                 <a href="<%= base %>/inventory/history" class="btn btn-sm btn-block">See all history</a>
             </aside>
+            <% } %>
         </div>
     <% } %>
 </div>

@@ -108,7 +108,7 @@
             </fieldset>
             <button type="submit" class="btn btn-primary btn-block"><%= editing ? 'Save changes' : (kind === 'goods' ? 'Publish product' : 'Publish service') %></button>
         </form>
-        <% if (editing) { %>
+        <% if (editing && typeof can !== 'undefined' && can && can.role === 'owner') { %>
             <div class="danger-zone">
                 <div>
                     <strong>Delete this listing</strong>
