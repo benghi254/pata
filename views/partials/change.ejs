@@ -1,0 +1,16 @@
+<%
+  const when = new Date(c.created_at);
+  const delta = c.qty_before != null && c.qty_after != null ? c.qty_after - c.qty_before : null;
+%><li class="change act-<%= c.action %>">
+    <div class="change-top">
+        <span class="chip act"><%= actions[c.action] || c.action %></span>
+        <strong><%= c.item_name %></strong>
+        <% if (delta) { %><span class="delta <%= delta > 0 ? 'up' : 'down' %>"><%= delta > 0 ? '+' : '−' %><%= Math.abs(delta) %></span><% } %>
+    </div>
+    <% if (c.detail) { %><div class="change-detail"><%= c.detail %></div><% } %>
+    <div class="change-meta muted">
+        <time datetime="<%= when.toISOString() %>"><%= when.toLocaleString('en-KE', { timeZone: 'Africa/Nairobi', dateStyle: 'medium', timeStyle: 'short' }) %></time>
+        <% if (c.qty_before != null || c.qty_after != null) { %> · stock <%= c.qty_before ?? '–' %> → <%= c.qty_after ?? '–' %><% } %>
+        <% if (typeof c.first_name !== 'undefined' && c.first_name) { %> · by <%= c.first_name %><% } %>
+    </div>
+</li>

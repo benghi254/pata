@@ -14,8 +14,9 @@
             <h1><%= listing.shop_name %></h1>
             <p class="what"><%= listing.title %></p>
         </div>
-        <% if (isOwner) { %>
-            <a href="/listing/<%= listing.id %>/edit" class="btn btn-sm">Edit listing</a>
+        <% if (can) { %>
+            <a href="/listing/<%= listing.id %>/inventory" class="btn btn-sm">Manage inventory</a>
+            <% if (can.shop) { %><a href="/listing/<%= listing.id %>/edit" class="btn btn-sm">Edit listing</a><% } %>
         <% } %>
         <% if (status) { %>
             <span class="status <%= status.isOpen ? 'open' : 'closed' %>"><%= status.label %></span>
@@ -28,6 +29,33 @@
                 <div class="card pad">
                     <h2 class="h-sm">About</h2>
                     <p class="desc"><%= listing.description %></p>
+                </div>
+            <% } %>
+
+            <% if (items.length) { %>
+                <div class="card pad">
+                    <h2 class="h-sm"><%= listing.kind === 'goods' ? 'Products' : 'Services' %> &amp; prices</h2>
+                    <ul class="catalogue">
+                        <% items.forEach(function (i) { const st = stockState(i); %>
+                            <li class="<%= st.key === 'out' ? 'is-out' : '' %>">
+                                <div class="cat-name">
+                                    <strong><%= i.name %></strong>
+                                    <% if (i.description) { %><span class="muted"><%= i.description %></span><% } %>
+                                </div>
+                                <div class="cat-right">
+                                    <% if (i.price != null) { %><span class="price"><%= kes(i.price) %><% if (i.unit) { %> <span class="muted"><%= i.unit %></span><% } %></span><% } %>
+                                    <% if (st.key !== 'untracked') { %><span class="chip stock-<%= st.key %>"><%= st.label %></span><% } %>
+                                </div>
+                            </li>
+                        <% }) %>
+                    </ul>
+                    <p class="hint">Prices and stock are kept up to date by the seller. Call to confirm.</p>
+                </div>
+            <% } else if (can && can.items) { %>
+                <div class="card pad">
+                    <h2 class="h-sm">Products &amp; prices</h2>
+                    <p class="hint">Only you can see this. Add your products, prices and stock so buyers know what you have.</p>
+                    <a href="/listing/<%= listing.id %>/items/new" class="btn btn-sm btn-primary">+ Add items</a>
                 </div>
             <% } %>
 
@@ -65,6 +93,34 @@
                 </a>
             </div>
 
+            <% if (payment) { %>
+                <div class="card pad pay-card">
+                    <h2 class="h-sm">Pay with <%= payment.provider %></h2>
+                    <dl class="pay-details">
+                        <div>
+                            <dt><%= payment.label %> · <%= payment.numberLabel %></dt>
+                            <dd>
+                                <span class="pay-number"><%= payment.display %></span>
+                                <button type="button" class="btn btn-sm copy-btn" data-copy="<%= payment.copyValue %>" hidden>Copy</button>
+                            </dd>
+                        </div>
+                        <% if (payment.account) { %>
+                            <div>
+                                <dt>Account number</dt>
+                                <dd>
+                                    <span class="pay-number"><%= payment.account %></span>
+                                    <button type="button" class="btn btn-sm copy-btn" data-copy="<%= payment.account %>" hidden>Copy</button>
+                                </dd>
+                            </div>
+                        <% } %>
+                    </dl>
+                    <ol class="pay-steps">
+                        <% payment.steps.forEach(function (s) { %><li><%= s %></li><% }) %>
+                    </ol>
+                    <p class="pay-warn">Before you enter your PIN, check that the name <%= payment.provider %> shows matches <strong><%= listing.shop_name %></strong>. If it doesn't, don't pay.</p>
+                </div>
+            <% } %>
+
             <div class="card pad">
                 <h2 class="h-sm">Opening hours</h2>
                 <% if (week) { %>
@@ -85,4 +141,5 @@
     </div>
 </div>
 <% if (hasPin) { %><script src="/js/listing-map.js" defer></script><% } %>
+<% if (payment) { %><script src="/js/copy.js" defer></script><% } %>
 <%- include('partials/footer') %>
