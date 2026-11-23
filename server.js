@@ -5,6 +5,7 @@ const cookieSession = require('cookie-session');
 const db = require('./db');
 const categories = require('./categories');
 const hours = require('./hours');
+const payments = require('./payments');
 const seo = require('./seo');
 const { hashPassword, verifyPassword, requireLogin } = require('./auth');
 
@@ -206,6 +207,7 @@ function renderSellForm(res, kindKey, values, errors, status = 200, editing) {
     editing: editing || null,
     options: categories.filter((c) => c.kind === kindKey),
     days: hours.DAYS,
+    payOptions: payments.OPTIONS,
     errors,
     values,
   });
@@ -220,6 +222,9 @@ function listingToValues(l) {
     description: l.description,
     phone: l.phone,
     website: l.website || '',
+    payMethod: l.pay_method || '',
+    payNumber: (payments.forListing(l) || {}).display || '',
+    payAccount: l.pay_account || '',
     county: l.county,
     constituency: l.constituency,
     ward: l.ward,
@@ -274,12 +279,15 @@ function readListingForm(body, kindKey) {
     }
   }
   errors.push(...parsedHours.errors);
+  const pay = payments.fromForm(body);
+  Object.assign(values, pay.values);
+  errors.push(...pay.errors);
 
   // Column values in the order used by the INSERT and UPDATE below.
   const row = [
     values.category, values.title, values.shopName, values.description, values.phone,
     values.county, values.constituency, values.ward, values.street, lat, lng,
-    JSON.stringify(parsedHours.hours), website || '',
+    JSON.stringify(parsedHours.hours), website || '', ...pay.row,
   ];
   return { values, errors, row };
 }
@@ -298,8 +306,9 @@ app.post('/sell/:kind', requireLogin, async (req, res, next) => {
 
   const listing = await db.one(`
     INSERT INTO listings (user_id, kind, category, title, shop_name, description, phone,
-                          county, constituency, ward, street, latitude, longitude, hours, website)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                          county, constituency, ward, street, latitude, longitude, hours, website,
+                          pay_method, pay_number, pay_account)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     RETURNING *
   `, [req.session.user.id, kindKey, ...row]);
   res.redirect(seo.listingPath(listing));
@@ -343,7 +352,7 @@ app.post('/listing/:id/edit', requireLogin, ownListing, async (req, res) => {
   await db.query(`
     UPDATE listings SET category = ?, title = ?, shop_name = ?, description = ?, phone = ?,
       county = ?, constituency = ?, ward = ?, street = ?, latitude = ?, longitude = ?, hours = ?,
-      website = ?, updated_at = now()
+      website = ?, pay_method = ?, pay_number = ?, pay_account = ?, updated_at = now()
     WHERE id = ? AND user_id = ?
   `, [...row, listing.id, req.session.user.id]);
   res.redirect('/my/listings?done=updated');
@@ -380,6 +389,7 @@ app.get('/listing/:id{/:slug}', async (req, res, next) => {
     category,
     status: hours.status(h),
     week: h ? hours.table(h) : null,
+    payment: payments.forListing(listing),
     isOwner: Boolean(req.session.user && req.session.user.id === listing.user_id),
   });
 });

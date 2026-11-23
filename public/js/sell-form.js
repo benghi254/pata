@@ -27,6 +27,25 @@
     });
   }
 
+  // ----- Mobile money -----
+  var payMethod = document.getElementById('payMethod');
+  if (payMethod) {
+    var numberField = document.querySelector('[data-pay=number]');
+    var accountField = document.querySelector('[data-pay=account]');
+    var syncPay = function () {
+      var opt = payMethod.options[payMethod.selectedIndex];
+      var has = Boolean(payMethod.value);
+      numberField.hidden = !has;
+      accountField.hidden = payMethod.value !== 'paybill';
+      if (has) {
+        numberField.querySelector('label').textContent = opt.getAttribute('data-number-label');
+        numberField.querySelector('input').placeholder = opt.getAttribute('data-kind') === 'phone' ? '0712 345678' : 'e.g. 123456';
+      }
+    };
+    payMethod.addEventListener('change', syncPay);
+    syncPay();
+  }
+
   // ----- Map pin -----
   var el = document.getElementById('picker');
   if (!el) return;

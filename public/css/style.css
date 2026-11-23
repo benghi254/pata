@@ -671,3 +671,12 @@ a.card.svc-tile { display: flex; align-items: center; gap: 14px; padding: 12px 1
 /* Leave room for the sticky header when jumping to a section. */
 section[id] { scroll-margin-top: 90px; }
 @media (max-width: 720px) { section[id] { scroll-margin-top: 150px; } }
+
+/* ----- Mobile money ----- */
+.field[hidden] { display: none; }
+.pay-details { margin: 0 0 14px; display: flex; flex-direction: column; gap: 12px; }
+.pay-details dt { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+.pay-details dd { margin: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pay-number { font-size: 22px; font-weight: 800; letter-spacing: 0.06em; color: var(--text); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.pay-steps { margin: 0 0 14px; padding-left: 20px; font-size: 14px; color: var(--text); display: flex; flex-direction: column; gap: 4px; }
+.pay-warn { margin: 0; font-size: 13px; padding: 10px 12px; border-radius: 12px; color: var(--warn-text); background: var(--warn-bg); border: 1px solid var(--warn-border); }

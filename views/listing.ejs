@@ -65,6 +65,34 @@
                 </a>
             </div>
 
+            <% if (payment) { %>
+                <div class="card pad pay-card">
+                    <h2 class="h-sm">Pay with <%= payment.provider %></h2>
+                    <dl class="pay-details">
+                        <div>
+                            <dt><%= payment.label %> · <%= payment.numberLabel %></dt>
+                            <dd>
+                                <span class="pay-number"><%= payment.display %></span>
+                                <button type="button" class="btn btn-sm copy-btn" data-copy="<%= payment.copyValue %>" hidden>Copy</button>
+                            </dd>
+                        </div>
+                        <% if (payment.account) { %>
+                            <div>
+                                <dt>Account number</dt>
+                                <dd>
+                                    <span class="pay-number"><%= payment.account %></span>
+                                    <button type="button" class="btn btn-sm copy-btn" data-copy="<%= payment.account %>" hidden>Copy</button>
+                                </dd>
+                            </div>
+                        <% } %>
+                    </dl>
+                    <ol class="pay-steps">
+                        <% payment.steps.forEach(function (s) { %><li><%= s %></li><% }) %>
+                    </ol>
+                    <p class="pay-warn">Before you enter your PIN, check that the name <%= payment.provider %> shows matches <strong><%= listing.shop_name %></strong>. If it doesn't, don't pay.</p>
+                </div>
+            <% } %>
+
             <div class="card pad">
                 <h2 class="h-sm">Opening hours</h2>
                 <% if (week) { %>
@@ -85,4 +113,5 @@
     </div>
 </div>
 <% if (hasPin) { %><script src="/js/listing-map.js" defer></script><% } %>
+<% if (payment) { %><script src="/js/copy.js" defer></script><% } %>
 <%- include('partials/footer') %>
