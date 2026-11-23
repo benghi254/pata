@@ -60,25 +60,7 @@
                 <% } %>
             </div>
             <p class="or"><span>or pick your area</span></p>
-            <div class="cols three">
-                <div class="field">
-                    <label for="county">County</label>
-                    <select id="county" name="county" required>
-                        <option value="">Choose county…</option>
-                        <% counties.forEach(function (c) { %><option <%= c === a.county && a.mode === 'place' ? 'selected' : '' %>><%= c %></option><% }) %>
-                    </select>
-                </div>
-                <div class="field">
-                    <label for="constituency">Constituency <span class="opt">(optional)</span></label>
-                    <input id="constituency" name="constituency" list="constituency-list" value="<%= a.mode === 'place' ? a.constituency : '' %>" autocomplete="off">
-                    <datalist id="constituency-list"><% constituencies.forEach(function (c) { %><option value="<%= c %>"><% }) %></datalist>
-                </div>
-                <div class="field">
-                    <label for="ward">Ward <span class="opt">(optional)</span></label>
-                    <input id="ward" name="ward" list="ward-list" value="<%= a.mode === 'place' ? a.ward : '' %>" autocomplete="off">
-                    <datalist id="ward-list"><% wards.forEach(function (w) { %><option value="<%= w %>"><% }) %></datalist>
-                </div>
-            </div>
+            <%- include('partials/place-fields', { place: a.mode === 'place' ? { county: a.county, constituency: a.constituency, ward: a.ward } : {}, countyRequired: true }) %>
             <button type="submit" class="btn">Show results in this area</button>
         </form>
     </details>

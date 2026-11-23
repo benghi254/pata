@@ -10,6 +10,7 @@ const seo = require('./seo');
 const inventory = require('./inventory');
 const team = require('./team');
 const areas = require('./areas');
+const places = require('./places');
 const { hashPassword, verifyPassword, requireLogin } = require('./auth');
 
 const app = express();
@@ -30,10 +31,16 @@ Object.assign(app.locals, {
   hoursStatus: (l) => hours.status(hours.parse(l.hours)),
   kes: inventory.kes,
   stockState: inventory.stockState,
+  places,
 });
 
 // On Vercel, files in public/ are served by the CDN; locally Express serves them.
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Counties, constituencies and wards for the place pickers. The URL carries a version, so it can be cached for long.
+app.get('/places.json', (req, res) => {
+  res.set('Cache-Control', 'public, max-age=31536000, immutable').type('application/json').send(places.RAW);
+});
 app.use(express.urlencoded({ extended: false }));
 
 // Logins live in a signed cookie, so they survive across serverless instances.
@@ -266,11 +273,6 @@ app.get('/search', async (req, res) => {
       wider = widerAreas(area).slice(0, 2).map((a) => ({ url: searchUrl(q, a), label: describeArea(a) }));
     }
   }
-  // Constituencies and wards sellers have used, to suggest in the area picker.
-  const places = await db.query(`SELECT DISTINCT county, constituency, ward FROM listings
-    WHERE constituency <> '' OR ward <> ''`);
-  const inCounty = (p) => !area || !area.county || areas.norm(p.county) === areas.norm(area.county);
-  const uniq = (list) => [...new Map(list.filter(Boolean).map((v) => [areas.norm(v), v])).values()].sort();
 
   res.render('search', {
     title: q ? `Search: ${q}` : 'Search shops and services near you',
@@ -281,9 +283,6 @@ app.get('/search', async (req, res) => {
     listings,
     wider,
     radii: RADII,
-    counties: areas.COUNTIES.map((c) => c.name).sort(),
-    constituencies: uniq(places.filter(inCounty).map((p) => p.constituency)),
-    wards: uniq(places.filter(inCounty).map((p) => p.ward)),
     categoryName: (slug) => (categoryBySlug(slug) || {}).name || slug,
     geoFailed: req.query.geo === 'off',
   });
@@ -375,7 +374,6 @@ function renderSellForm(res, kindKey, values, errors, status = 200, editing) {
     options: categories.filter((c) => c.kind === kindKey),
     days: hours.DAYS,
     payOptions: payments.OPTIONS,
-    counties: areas.COUNTIES.map((c) => c.name).sort(),
     errors,
     values,
   });
@@ -420,7 +418,8 @@ function normalizeWebsite(input) {
 }
 
 // Reads and checks the sell / edit form. Returns { values, errors, row }.
-function readListingForm(body, kindKey) {
+// `current` is the listing being edited, if any (its saved place is accepted as it is).
+function readListingForm(body, kindKey, current) {
   const fields = ['category', 'title', 'shopName', 'description', 'phone', 'website', 'county', 'constituency', 'ward', 'street', 'latitude', 'longitude'];
   const values = Object.fromEntries(fields.map((f) => [f, trim(body[f])]));
   const parsedHours = hours.fromForm(body);
@@ -434,7 +433,9 @@ function readListingForm(body, kindKey) {
   const website = normalizeWebsite(values.website);
   if (website === null) errors.push('Enter a valid website address, e.g. www.myshop.co.ke.');
   else values.website = website;
-  if (!values.county) errors.push('County is required.');
+  const place = places.check(values, { keep: current || {} });
+  Object.assign(values, { county: place.county || values.county, constituency: place.constituency, ward: place.ward });
+  errors.push(...place.errors);
   if (!values.street) errors.push('Enter the street, building or a landmark near your shop.');
 
   let lat = null;
@@ -519,7 +520,7 @@ app.get('/listing/:id/edit', requireLogin, shopAccess('shop'), (req, res) => {
 
 app.post('/listing/:id/edit', requireLogin, shopAccess('shop'), async (req, res) => {
   const { listing } = res.locals;
-  const { values, errors, row } = readListingForm(req.body, listing.kind);
+  const { values, errors, row } = readListingForm(req.body, listing.kind, listing);
   if (errors.length) return renderSellForm(res, listing.kind, values, errors, 400, listing);
 
   await db.query(`
