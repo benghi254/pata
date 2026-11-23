@@ -1,0 +1,34 @@
+<%- include('partials/header') %>
+<div class="wrap panel-page">
+    <div class="panel">
+        <a href="<%= next %>#rate" class="back">← Back to the shop</a><br>
+        <span class="eyebrow">Rate a shop</span>
+        <h1>Enter the code</h1>
+        <p class="sub">We sent a 6-digit code by SMS to <strong><%= phone %></strong>. It works for <%= minutes %> minutes.</p>
+        <% if (flash) { %><p class="notice <%= flash.type === 'bad' ? 'bad' : '' %>" role="status"><%= flash.text %></p><% } %>
+        <% if (error) { %><ul class="errors"><li><%= error %></li></ul><% } %>
+        <% if (devCode) { %><p class="buyer-note">Development only, no SMS was sent: your code is <strong><%= devCode %></strong>.</p><% } %>
+        <form method="post" action="/rate/verify">
+            <input type="hidden" name="next" value="<%= next %>">
+            <div class="field">
+                <label for="code">Code from the SMS</label>
+                <input id="code" name="code" class="code-input" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="••••••" required autofocus>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Confirm</button>
+        </form>
+        <div class="alt">
+            Didn't get it?
+            <form method="post" action="/rate/resend" class="inline">
+                <input type="hidden" name="next" value="<%= next %>">
+                <button type="submit" class="linklike">Send a new code</button>
+            </form>
+            or
+            <form method="post" action="/rate/sign-out" class="inline">
+                <input type="hidden" name="next" value="<%= next %>">
+                <button type="submit" class="linklike">use another number</button>
+            </form>
+        </div>
+        <p class="hint" style="margin-top:18px">We only use your number to make sure each person rates a shop once. It is never shown to sellers or other buyers.</p>
+    </div>
+</div>
+<%- include('partials/footer') %>

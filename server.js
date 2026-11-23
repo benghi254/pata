@@ -9,6 +9,8 @@ const payments = require('./payments');
 const seo = require('./seo');
 const inventory = require('./inventory');
 const team = require('./team');
+const ratings = require('./ratings');
+const sms = require('./sms');
 const areas = require('./areas');
 const places = require('./places');
 const { hashPassword, verifyPassword, requireLogin } = require('./auth');
@@ -114,9 +116,9 @@ app.get('/', async (req, res) => {
 app.get('/category/:slug', async (req, res, next) => {
   const category = categoryBySlug(req.params.slug);
   if (!category) return next();
-  const listings = await db.query(
+  const listings = await ratings.attach(await db.query(
     'SELECT * FROM listings WHERE category = ? ORDER BY created_at DESC, id DESC', [category.slug],
-  );
+  ));
   const { siteUrl } = res.locals;
   res.render('category', {
     title: `${category.name} near you`,
@@ -263,7 +265,7 @@ app.get('/search', async (req, res) => {
   let listings = [];
   let wider = [];
   if (area) {
-    listings = await findListings(words, area);
+    listings = await ratings.attach(await findListings(words, area));
     // Nothing here? Say how many each wider area would show, so widening is one click.
     if (!listings.length) {
       for (const a of widerAreas(area)) {
@@ -783,6 +785,123 @@ app.post('/invite/:token', requireLogin, async (req, res) => {
   res.redirect(`/listing/${joined.listing_id}/inventory`);
 });
 
+// ---------- Ratings: buyers prove a phone with an SMS code, then rate a shop once ----------
+
+// What the shop page needs to show ratings and the rating form.
+async function ratingView(req, listing) {
+  const buyer = req.session.buyer || null;
+  return {
+    ratingSummary: await ratings.summary(listing.id),
+    ratingList: await ratings.recent(listing.id),
+    myRating: buyer ? await ratings.myRating(listing.id, buyer.id) : null,
+    rateBlocked: await ratings.blockedReason(listing, req.session.user, buyer),
+    buyer: buyer && { ...buyer, masked: ratings.maskPhone(buyer.phone) },
+    ratingsOn: sms.available(),
+  };
+}
+
+const rateNext = (req) => safeNext((req.body && req.body.next) || req.query.next, '/');
+const withHash = (url) => (url.includes('#') ? url : `${url}#rate`);
+
+// Step 1: the buyer gives a phone number and we text a code.
+app.post('/rate/phone', async (req, res) => {
+  const next = rateNext(req);
+  const phone = ratings.readPhone(req.body.phone);
+  if (!phone) {
+    flash(req, 'bad', 'Enter a Kenyan mobile number, e.g. 0712 345678.');
+    return res.redirect(withHash(next));
+  }
+  const sent = await ratings.sendCode(phone, req.ip);
+  if (sent.error && !sent.wait) {
+    flash(req, 'bad', sent.error);
+    return res.redirect(withHash(next));
+  }
+  req.session.pendingPhone = phone;
+  if (sent.devCode) req.session.devCode = sent.devCode;
+  if (sent.error) flash(req, 'bad', sent.error);
+  res.redirect(`/rate/verify?next=${encodeURIComponent(next)}`);
+});
+
+function renderVerify(req, res, error, status = 200) {
+  const devCode = req.session.devCode || null;
+  delete req.session.devCode;
+  res.status(status).render('rate-verify', {
+    title: 'Confirm your phone', noindex: true, error,
+    phone: ratings.maskPhone(req.session.pendingPhone), next: rateNext(req), devCode, minutes: ratings.CODE_MINUTES,
+  });
+}
+
+// Step 2: the buyer types the code.
+app.get('/rate/verify', (req, res) => {
+  if (!req.session.pendingPhone) return res.redirect(withHash(rateNext(req)));
+  renderVerify(req, res, null);
+});
+
+app.post('/rate/verify', async (req, res) => {
+  const phone = req.session.pendingPhone;
+  if (!phone) return res.redirect(withHash(rateNext(req)));
+  const result = await ratings.checkCode(phone, req.body.code);
+  if (result.error) return renderVerify(req, res, result.error, 400);
+  delete req.session.pendingPhone;
+  req.session.buyer = { id: result.buyer.id, phone: result.buyer.phone };
+  flash(req, 'ok', 'Phone confirmed. You can now rate shops on PATA.');
+  res.redirect(withHash(rateNext(req)));
+});
+
+app.post('/rate/resend', async (req, res) => {
+  const phone = req.session.pendingPhone;
+  if (!phone) return res.redirect(withHash(rateNext(req)));
+  const sent = await ratings.sendCode(phone, req.ip);
+  if (sent.devCode) req.session.devCode = sent.devCode;
+  flash(req, sent.error ? 'bad' : 'ok', sent.error || 'We sent a new code.');
+  res.redirect(`/rate/verify?next=${encodeURIComponent(rateNext(req))}`);
+});
+
+app.post('/rate/sign-out', (req, res) => {
+  delete req.session.buyer;
+  delete req.session.pendingPhone;
+  res.redirect(withHash(rateNext(req)));
+});
+
+// Step 3: rate (or re-rate) the shop. One rating per verified phone per shop.
+app.post('/listing/:id/rate', async (req, res, next) => {
+  const listing = await db.one('SELECT * FROM listings WHERE id = ?', [Number(req.params.id) || 0]);
+  if (!listing) return next();
+  const back = `${seo.listingPath(listing)}#rate`;
+  const buyer = req.session.buyer;
+  if (!buyer) {
+    flash(req, 'bad', 'Confirm your phone number first, then rate.');
+    return res.redirect(back);
+  }
+  // The buyer may have been removed since signing in (e.g. data cleanup): sign them out.
+  if (!(await db.one('SELECT 1 FROM buyers WHERE id = ?', [buyer.id]))) {
+    delete req.session.buyer;
+    flash(req, 'bad', 'Please confirm your phone number again.');
+    return res.redirect(back);
+  }
+  const blocked = await ratings.blockedReason(listing, req.session.user, buyer);
+  if (blocked) {
+    flash(req, 'bad', blocked);
+    return res.redirect(back);
+  }
+  const r = ratings.readRating(req.body);
+  if (r.errors.length) {
+    flash(req, 'bad', r.errors.join(' '));
+    return res.redirect(back);
+  }
+  const saved = await ratings.saveRating(listing.id, buyer.id, r);
+  flash(req, 'ok', saved.created ? 'Thank you! Your rating is posted.' : 'Your rating is updated.');
+  res.redirect(back);
+});
+
+app.post('/listing/:id/rate/delete', async (req, res, next) => {
+  const listing = await db.one('SELECT * FROM listings WHERE id = ?', [Number(req.params.id) || 0]);
+  if (!listing) return next();
+  if (req.session.buyer) await ratings.deleteRating(listing.id, req.session.buyer.id);
+  flash(req, 'ok', 'Your rating is removed.');
+  res.redirect(`${seo.listingPath(listing)}#rate`);
+});
+
 // Public shop page. Registered after /listing/:id/edit so "edit" is never read as a slug.
 app.get('/listing/:id{/:slug}', async (req, res, next) => {
   const listing = await db.one('SELECT * FROM listings WHERE id = ?', [Number(req.params.id) || 0]);
@@ -813,6 +932,7 @@ app.get('/listing/:id{/:slug}', async (req, res, next) => {
     items,
     payment: payments.forListing(listing),
     can: await team.access(listing, req.session.user && req.session.user.id),
+    ...(await ratingView(req, listing)),
   });
 });
 
@@ -826,6 +946,7 @@ app.get('/robots.txt', (req, res) => {
     'Disallow: /signup',
     'Disallow: /sell/',
     'Disallow: /invite/',
+    'Disallow: /rate/',
     '',
     `Sitemap: ${res.locals.siteUrl}/sitemap.xml`,
     '',
