@@ -9,6 +9,7 @@ const payments = require('./payments');
 const seo = require('./seo');
 const inventory = require('./inventory');
 const team = require('./team');
+const areas = require('./areas');
 const { hashPassword, verifyPassword, requireLogin } = require('./auth');
 
 const app = express();
@@ -374,6 +375,7 @@ function renderSellForm(res, kindKey, values, errors, status = 200, editing) {
     options: categories.filter((c) => c.kind === kindKey),
     days: hours.DAYS,
     payOptions: payments.OPTIONS,
+    counties: areas.COUNTIES.map((c) => c.name).sort(),
     errors,
     values,
   });
@@ -523,7 +525,7 @@ app.post('/listing/:id/edit', requireLogin, shopAccess('shop'), async (req, res)
   await db.query(`
     UPDATE listings SET category = ?, title = ?, shop_name = ?, description = ?, phone = ?,
       county = ?, constituency = ?, ward = ?, street = ?, latitude = ?, longitude = ?, hours = ?,
-      website = ?, updated_at = now()
+      website = ?, pay_method = ?, pay_number = ?, pay_account = ?, updated_at = now()
     WHERE id = ?
   `, [...row, listing.id]);
   res.redirect('/my/listings?done=updated');
@@ -807,6 +809,7 @@ app.get('/listing/:id{/:slug}', async (req, res, next) => {
     status: hours.status(h),
     week: h ? hours.table(h) : null,
     items,
+    payment: payments.forListing(listing),
     can: await team.access(listing, req.session.user && req.session.user.id),
   });
 });
