@@ -1,4 +1,4 @@
-// Home page: filter categories as you type. Enter searches listings near you (search.js).
+// Home page: filter categories as you type. Enter searches listings in the buyer's constituency.
 (function () {
   var input = document.getElementById('find');
   if (!input) return;

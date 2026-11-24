@@ -122,6 +122,17 @@ const SCHEMA = `
   );
   CREATE INDEX IF NOT EXISTS listing_invites_listing ON listing_invites(listing_id);
 
+  -- Photos sellers upload: of the shop (item_id NULL) or of one catalogue item.
+  CREATE TABLE IF NOT EXISTS photos (
+    id          SERIAL PRIMARY KEY,
+    listing_id  INTEGER NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+    item_id     INTEGER REFERENCES items(id) ON DELETE CASCADE,
+    mime        TEXT NOT NULL,
+    data        BYTEA NOT NULL,
+    position    INTEGER NOT NULL DEFAULT 0,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+  CREATE INDEX IF NOT EXISTS photos_owner ON photos(listing_id, item_id, position);
   -- Buyers who proved a phone number with an SMS code. One phone = one buyer, so one
   -- person can't rate a shop many times. phone is 07XXXXXXXX / 01XXXXXXXX.
   CREATE TABLE IF NOT EXISTS buyers (

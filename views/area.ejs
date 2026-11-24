@@ -1,0 +1,10 @@
+<%- include('partials/header') %>
+<div class="wrap panel-page">
+    <div class="panel wide">
+        <span class="eyebrow">Your area</span>
+        <h1>Choose your constituency</h1>
+        <% if (error) { %><%- include('partials/errors', { errors: [error] }) %><% } %>
+        <%- include('partials/area-picker', { next: next }) %>
+    </div>
+</div>
+<%- include('partials/footer') %>

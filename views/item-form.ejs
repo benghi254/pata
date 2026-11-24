@@ -6,7 +6,7 @@
         <h1><%= editing ? 'Edit ' + editing.name : 'Add an item' %></h1>
         <p class="sub"><%= editing ? 'Change the details. To change how many you have, use the stock controls on your inventory page, so every movement is recorded.' : 'A product or service you sell. Buyers see the name, price and whether it is in stock.' %></p>
         <%- include('partials/errors', { errors: errors }) %>
-        <form action="<%= action %>" method="post" id="item-form">
+        <form action="<%= action %>" method="post" id="item-form" enctype="multipart/form-data">
             <fieldset>
                 <legend>Details</legend>
                 <div class="cols">
@@ -32,6 +32,11 @@
                     </div>
                 </div>
             </fieldset>
+            <%- include('partials/photo-field', {
+                photos: photos, maxPhotos: maxPhotos,
+                label: 'Photos',
+                hint: listing.kind === 'goods' ? 'Show buyers what it looks like. The first photo is shown in your catalogue.' : 'Show an example of this service. The first photo is shown in your catalogue.',
+            }) %>
             <fieldset>
                 <legend>Stock</legend>
                 <label class="check"><input type="checkbox" name="tracked" id="tracked" <%= values.tracked ? 'checked' : '' %>> Count how many I have <span class="opt">(leave off for services or made-to-order)</span></label>

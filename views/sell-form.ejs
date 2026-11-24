@@ -11,7 +11,7 @@
         <% } %>
         <p class="sub"><%= heading %>.</p>
         <%- include('partials/errors', { errors: errors }) %>
-        <form action="<%= action %>" method="post">
+        <form action="<%= action %>" method="post" enctype="multipart/form-data">
             <fieldset>
                 <legend><%= kind === 'goods' ? 'Product details' : 'Service details' %></legend>
                 <div class="cols">
@@ -43,6 +43,11 @@
                     </div>
                 </div>
             </fieldset>
+            <%- include('partials/photo-field', {
+                photos: photos, maxPhotos: maxPhotos,
+                label: kind === 'goods' ? 'Photos of your product or shop' : 'Photos of your work or shop',
+                hint: kind === 'goods' ? 'Clear photos help buyers see what you sell. The first photo is shown on your listing.' : 'Show buyers your work, your tools or your shop front. The first photo is shown on your listing.',
+            }) %>
             <fieldset>
                 <legend>Contact &amp; location</legend>
                 <div class="cols">
@@ -55,7 +60,8 @@
                         <input id="website" type="text" inputmode="url" name="website" value="<%= values.website || '' %>" placeholder="e.g. www.myshop.co.ke" autocomplete="url" maxlength="400">
                     </div>
                     <div class="span">
-                        <%- include('partials/place-fields', { place: { county: values.county, constituency: values.constituency, ward: values.ward }, countyRequired: true }) %>
+                        <%- include('partials/place-fields', { place: { county: values.county, constituency: values.constituency, ward: values.ward }, countyRequired: true, constituencyRequired: true }) %>
+                        <p class="hint">Buyers only see shops in their own constituency, so choose the one your shop is in.</p>
                     </div>
                     <div class="field span">
                         <label for="street">Street, building or landmark</label>

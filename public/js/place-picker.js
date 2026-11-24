@@ -35,11 +35,11 @@
 
     function failed() {
       fill(con, [], '', 'Could not load the list. Check your connection.');
-      fill(ward, [], '', 'Choose a constituency first');
+      if (ward) fill(ward, [], '', 'Choose a constituency first');
     }
 
     county.addEventListener('change', function () {
-      fill(ward, [], '', 'Choose a constituency first');
+      if (ward) fill(ward, [], '', 'Choose a constituency first');
       if (!county.value) return fill(con, [], '', 'Choose a county first');
       con.disabled = true;
       con.options[0].textContent = 'Loading…';
@@ -48,7 +48,8 @@
       }, failed);
     });
 
-    con.addEventListener('change', function () {
+    // Without a ward list (the buyer's constituency picker) there is nothing more to fill.
+    if (ward) con.addEventListener('change', function () {
       if (!con.value) return fill(ward, [], '', 'Choose a constituency first');
       load().then(function () {
         var wards = (tree[county.value] || {})[con.value] || [];

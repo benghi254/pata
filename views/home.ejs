@@ -1,5 +1,5 @@
 <%- include('partials/header') %>
-<% const total = Object.values(counts).reduce(function (a, b) { return a + b; }, 0);
+<% const total = counts ? Object.values(counts).reduce(function (a, b) { return a + b; }, 0) : null;
    const searchText = function (c) { return [c.name, c.blurb, c.keywords, c.group].join(' ').toLowerCase(); }; %>
 <div class="wrap">
     <section class="hero">
@@ -7,19 +7,23 @@
         <h1>Find it. Sell it. <span class="grad-text">Right next door.</span></h1>
         <p class="lead">PATA connects you with vendors, makers and fundis in your area. No middlemen, no shipping from abroad, just the people around you. <strong>No account needed to buy</strong>: just browse and call.</p>
 
-        <form class="finder" role="search" action="/search" method="get" data-area-search>
-            <label for="find" class="visually-hidden">Search shops and services near you</label>
+        <form class="finder" role="search" action="/search" method="get">
+            <label for="find" class="visually-hidden">Search shops and services in your constituency</label>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
             <input id="find" name="q" type="search" enterkeyhint="search" placeholder="What do you need? Try plumber, mama fua, boda…" autocomplete="off">
         </form>
         <p class="finder-hint" id="find-status" aria-live="polite">
-            <%= goods.length %> kinds of goods and <%= serviceCount %> services and trades. Press Enter to search shops near you.
+            <%= goods.length %> kinds of goods and <%= serviceCount %> services and trades. Press Enter to search shops in <%= area ? area.constituency : 'your constituency' %>.
             Popular:
             <% ['plumber', 'electrician', 'mechanic', 'mama fua', 'mjengo', 'boda'].forEach(function (q, i) { %><button type="button" class="pill" data-q="<%= q %>"><%= q %></button><% }) %>
         </p>
 
+        <% if (!area) { %>
+            <div class="hero-area"><%- include('partials/area-picker', { next: '/' }) %></div>
+        <% } %>
+
         <div class="stats">
-            <div class="stat"><b class="grad-text"><%= total %></b><span>Listings</span></div>
+            <% if (area) { %><div class="stat"><b class="grad-text"><%= total %></b><span>Listings in <%= area.constituency %></span></div><% } %>
             <div class="stat"><b class="grad-text"><%= goods.length + serviceCount %></b><span>Categories</span></div>
             <div class="stat"><b class="grad-text">0</b><span>Middlemen</span></div>
         </div>
@@ -35,14 +39,14 @@
             <a href="/sell/goods" class="btn btn-sm">Sell a product</a>
         </div>
         <div class="grid">
-            <% goods.forEach(function (c) { const n = counts[c.slug] || 0; %>
+            <% goods.forEach(function (c) { const n = counts ? counts[c.slug] || 0 : null; %>
                 <a class="card cat-card findable" href="/category/<%= c.slug %>" data-search="<%= searchText(c) %>">
                     <div class="media"><%- include('partials/cat-media', { c: c }) %></div>
                     <div class="body">
                         <h3><%= c.name %></h3>
                         <p><%= c.blurb %></p>
                         <div class="foot">
-                            <span class="chip <%= n ? 'live' : '' %>"><%= n %> listed</span>
+                            <% if (n !== null) { %><span class="chip <%= n ? 'live' : '' %>"><%= n %> listed</span><% } %>
                             <span class="go">Explore →</span>
                         </div>
                     </div>
@@ -65,14 +69,14 @@
             <div class="svc-group findable-section">
                 <h3 class="group-title"><%= g.name %></h3>
                 <div class="svc-grid">
-                    <% g.items.forEach(function (c) { const n = counts[c.slug] || 0; %>
+                    <% g.items.forEach(function (c) { const n = counts ? counts[c.slug] || 0 : null; %>
                         <a class="card svc-tile findable" href="/category/<%= c.slug %>" data-search="<%= searchText(c) %>">
                             <div class="thumb"><%- include('partials/cat-media', { c: c }) %></div>
                             <div class="txt">
                                 <h4><%= c.name %></h4>
                                 <p><%= c.blurb %></p>
                             </div>
-                            <span class="chip <%= n ? 'live' : '' %>"><%= n %></span>
+                            <% if (n !== null) { %><span class="chip <%= n ? 'live' : '' %>"><%= n %></span><% } %>
                         </a>
                     <% }) %>
                 </div>
