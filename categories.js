@@ -21,6 +21,10 @@ const GROUPS = [
         blurb: 'No need to ship clothing from abroad when you can find sellers here.', keywords: 'mitumba clothes dresses' },
       { slug: 'shoes', name: 'Shoes', image: 'gwanda.jpg', icon: '👟', hue: 200, schemaType: 'ShoeStore',
         blurb: 'Sneakers, official shoes and sandals from local sellers.', keywords: 'sneakers viatu open shoes' },
+      { slug: 'general-shop', name: 'General shops (duka)', icon: '🏪', hue: 55, schemaType: 'ConvenienceStore',
+        blurb: 'Your neighbourhood duka or kiosk for everyday household items.', keywords: 'duka kiosk shop retail household airtime sugar bread milk' },
+      { slug: 'supermarket', name: 'Supermarkets & minimarts', icon: '🛒', hue: 140, schemaType: 'GroceryStore',
+        blurb: 'Supermarkets, minimarts and shopping marts near you.', keywords: 'supermarket minimart mart shopping wholesale groceries' },
     ],
   },
   {
